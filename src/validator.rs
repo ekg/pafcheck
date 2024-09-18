@@ -3,6 +3,7 @@ use crate::fasta_reader::MultiFastaReader;
 use crate::paf_parser::PafRecord;
 use anyhow::{Context, Result};
 use thiserror::Error;
+use std::io::{Write, BufWriter};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ErrorType {
@@ -26,11 +27,11 @@ impl std::fmt::Display for ValidationError {
     }
 }
 
-pub fn validate_record(
+pub fn validate_record<W: Write>(
     record: &PafRecord,
     fasta_reader: &mut MultiFastaReader,
     error_mode: &str,
-    output: &mut Vec<u8>,
+    output: &mut BufWriter<W>,
 ) -> Result<()> {
     let query_seq = fasta_reader
         .fetch_query_sequence(&record.query_name, record.query_start, record.query_end)

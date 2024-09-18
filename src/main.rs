@@ -71,8 +71,6 @@ fn validate_paf(
 ) -> Result<()> {
     let mut fasta_reader = MultiFastaReader::new(query_fasta, target_fasta)
         .context("Failed to create FASTA readers")?;
-    println!("Using query FASTA: {}", query_fasta);
-    println!("Using target FASTA: {}", target_fasta);
     let paf_file = File::open(paf_path).context("Failed to open PAF file")?;
     let reader = BufReader::new(paf_file);
 

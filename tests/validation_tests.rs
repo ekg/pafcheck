@@ -43,9 +43,10 @@ fn test_mismatch_detection() -> Result<()> {
     assert!(result.is_ok(), "Expected validation to succeed, but it failed");
 
     // The validation should succeed, but we expect it to report the mismatch
-    // We can't check the error message directly since it's not an error anymore
-    // Instead, we could add a way to capture reported issues even when validation succeeds
-    // For now, we'll just assert that the validation passed
+    // We can capture the output to check if the mismatch was reported
+    let output = std::io::stdout().to_string();
+    assert!(output.contains("Mismatch in Match operation at CIGAR op 0, position 4: query C vs target T"),
+        "Expected mismatch was not reported in the output");
 
     Ok(())
 }
@@ -143,17 +144,16 @@ fn test_mixed_match_mismatch_errors() -> Result<()> {
 
     let result = validate_record(&paf_record, &mut fasta_reader, "report");
 
-    assert!(result.is_err(), "Expected validation to fail, but it succeeded");
+    assert!(result.is_ok(), "Expected validation to succeed in report mode");
 
-    if let Err(e) = result {
-        let error_message = e.to_string();
-        assert!(
-            error_message.contains("Mismatch in Match operation at CIGAR op 0, position 4: query A vs target T") &&
-            error_message.contains("Match in Mismatch operation at CIGAR op 1, position 5: query C vs target C"),
-            "Unexpected error message: {}",
-            error_message
-        );
-    }
+    // Capture the output to check if the mismatches were reported
+    let output = std::io::stdout().to_string();
+    assert!(
+        output.contains("Mismatch in Match operation at CIGAR op 0, position 4: query A vs target T") &&
+        output.contains("Match in Mismatch operation at CIGAR op 1, position 5: query C vs target C"),
+        "Expected mismatches were not reported in the output: {}",
+        output
+    );
 
     Ok(())
 }

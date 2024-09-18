@@ -121,10 +121,10 @@ pub fn validate_record<W: Write>(
     }
 
     if !errors.is_empty() {
+        for (error_type, error) in &errors {
+            writeln!(output, "{:?}: {}", error_type, error)?;
+        }
         if error_mode == "report" {
-            for (error_type, error) in &errors {
-                writeln!(output, "{:?}: {}", error_type, error)?;
-            }
             Ok(())
         } else {
             Err(ValidationError { errors }.into())

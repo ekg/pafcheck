@@ -23,7 +23,11 @@ fn create_temp_paf(entries: &[&str]) -> Result<NamedTempFile> {
     Ok(temp_file)
 }
 
-fn run_validation(fasta_content: &[(&str, &str)], paf_content: &[&str], error_mode: &str) -> Result<Vec<String>> {
+fn run_validation(
+    fasta_content: &[(&str, &str)],
+    paf_content: &[&str],
+    error_mode: &str,
+) -> Result<Vec<String>> {
     let fasta_file = create_temp_fasta(fasta_content)?;
     let paf_file = create_temp_paf(paf_content)?;
 
@@ -49,10 +53,15 @@ fn test_perfect_match() -> Result<()> {
         ("query1", &"A".repeat(1000)),
         ("target1", &"A".repeat(1000)),
     ];
-    let paf_content = ["query1\t1000\t100\t200\t+\ttarget1\t1000\t150\t250\t100\t100\t255\tcg:Z:100="];
-    
+    let paf_content =
+        ["query1\t1000\t100\t200\t+\ttarget1\t1000\t150\t250\t100\t100\t255\tcg:Z:100="];
+
     let errors = run_validation(&fasta_content, &paf_content, "report")?;
-    assert!(errors.is_empty(), "Expected no errors, but got: {:?}", errors);
+    assert!(
+        errors.is_empty(),
+        "Expected no errors, but got: {:?}",
+        errors
+    );
     Ok(())
 }
 
@@ -62,11 +71,16 @@ fn test_false_mismatch_detection() -> Result<()> {
         ("query1", &"C".repeat(1000)),
         ("target1", &"C".repeat(1000)),
     ];
-    let paf_content = ["query1\t1000\t100\t200\t+\ttarget1\t1000\t150\t250\t100\t100\t255\tcg:Z:50=1X49="];
-    
+    let paf_content =
+        ["query1\t1000\t100\t200\t+\ttarget1\t1000\t150\t250\t100\t100\t255\tcg:Z:50=1X49="];
+
     let errors = run_validation(&fasta_content, &paf_content, "report")?;
     assert_eq!(errors.len(), 1, "Expected one error, but got: {:?}", errors);
-    assert!(errors[0].contains("Match in Mismatch operation"), "Unexpected error message: {}", errors[0]);
+    assert!(
+        errors[0].contains("Match in Mismatch operation"),
+        "Unexpected error message: {}",
+        errors[0]
+    );
     Ok(())
 }
 

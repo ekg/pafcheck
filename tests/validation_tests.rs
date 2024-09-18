@@ -42,14 +42,17 @@ fn test_mismatch_detection() -> Result<()> {
     {
         let mut writer = BufWriter::new(&mut output);
         let result = validate_record(&paf_record, &mut fasta_reader, "report", &mut writer);
-        assert!(result.is_ok(), "Expected validation to succeed, but it failed");
+        assert!(result.is_ok(), "Expected validation to succeed in report mode");
         writer.flush()?;
     }
 
     // Convert captured output to string
     let output_str = String::from_utf8_lossy(&output);
-    assert!(output_str.contains("Mismatch in Match operation at CIGAR op 0, position 4: query C vs target T"),
-        "Expected mismatch was not reported in the output");
+    assert!(
+        output_str.contains("Mismatch: CIGAR mismatch at operation 0: query char 'C' at pos 4 vs target char 'T' at pos 4"),
+        "Expected mismatch was not reported in the output: {}",
+        output_str
+    );
 
     Ok(())
 }
@@ -74,19 +77,22 @@ fn test_false_match_detection() -> Result<()> {
 
     let mut fasta_reader = MultiFastaReader::new(query_fasta.path(), target_fasta.path())?;
 
-    let mut output = BufWriter::new(Vec::new());
-    let result = validate_record(&paf_record, &mut fasta_reader, "report", &mut output);
+    let mut output = Vec::new();
+    let result = {
+        let mut writer = BufWriter::new(&mut output);
+        let result = validate_record(&paf_record, &mut fasta_reader, "report", &mut writer);
+        writer.flush()?;
+        result
+    };
 
-    assert!(result.is_err(), "Expected validation to fail, but it succeeded");
+    assert!(result.is_ok(), "Expected validation to succeed in report mode");
 
-    if let Err(e) = result {
-        let error_message = e.to_string();
-        assert!(
-            error_message.contains("Mismatch in Match operation at CIGAR op 0, position 4: query C vs target T"),
-            "Unexpected error message: {}",
-            error_message
-        );
-    }
+    let output_str = String::from_utf8_lossy(&output);
+    assert!(
+        output_str.contains("Mismatch: CIGAR mismatch at operation 0: query char 'C' at pos 4 vs target char 'T' at pos 4"),
+        "Expected mismatch was not reported in the output: {}",
+        output_str
+    );
 
     Ok(())
 }
@@ -123,13 +129,14 @@ fn test_false_mismatch_detection() -> Result<()> {
 
     let output_str = String::from_utf8_lossy(&output);
     assert!(
-        output_str.contains("Match in Mismatch operation at CIGAR op 1, position 4: query T vs target T"),
+        output_str.contains("CigarMismatch: CIGAR mismatch at operation 1: query char 'T' at pos 4 vs target char 'T' at pos 4"),
         "Expected mismatch was not reported in the output: {}",
         output_str
     );
 
     Ok(())
 }
+
 #[test]
 fn test_mixed_match_mismatch_errors() -> Result<()> {
     let query_fasta = create_temp_fasta(&[("query1", "ACGTACGT")])?;
@@ -162,8 +169,8 @@ fn test_mixed_match_mismatch_errors() -> Result<()> {
     // Convert captured output to string
     let output_str = String::from_utf8_lossy(&output);
     assert!(
-        output_str.contains("Mismatch in Match operation at CIGAR op 0, position 4: query A vs target T") &&
-        output_str.contains("Match in Mismatch operation at CIGAR op 1, position 5: query C vs target C"),
+        output_str.contains("Mismatch: CIGAR mismatch at operation 0: query char 'A' at pos 4 vs target char 'T' at pos 4") &&
+        output_str.contains("CigarMismatch: CIGAR mismatch at operation 1: query char 'C' at pos 5 vs target char 'C' at pos 5"),
         "Expected mismatches were not reported in the output: {}",
         output_str
     );

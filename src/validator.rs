@@ -116,10 +116,8 @@ pub fn validate_record(
             for (error_type, error) in &errors {
                 println!("{:?}: {}", error_type, error);
             }
-            anyhow::bail!(ValidationError { errors });
-        } else {
-            return Err(ValidationError { errors }.into());
         }
+        return Err(ValidationError { errors }.into());
     }
 
     Ok(())

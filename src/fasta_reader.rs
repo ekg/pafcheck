@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use rust_htslib::faidx;
 use std::path::Path;
+use std::io::Cursor;
 
 pub struct MultiFastaReader {
     query_reader: faidx::Reader,
@@ -13,6 +14,17 @@ impl MultiFastaReader {
             .context(format!("Failed to open query FASTA file: {:?}", query_fasta.as_ref()))?;
         let target_reader = faidx::Reader::from_path(&target_fasta)
             .context(format!("Failed to open target FASTA file: {:?}", target_fasta.as_ref()))?;
+        Ok(MultiFastaReader {
+            query_reader,
+            target_reader,
+        })
+    }
+
+    pub fn from_strings(query_fasta: &str, target_fasta: &str) -> Result<Self> {
+        let query_reader = faidx::Reader::from_reader(Cursor::new(query_fasta.as_bytes()))
+            .context("Failed to create query FASTA reader from string")?;
+        let target_reader = faidx::Reader::from_reader(Cursor::new(target_fasta.as_bytes()))
+            .context("Failed to create target FASTA reader from string")?;
         Ok(MultiFastaReader {
             query_reader,
             target_reader,

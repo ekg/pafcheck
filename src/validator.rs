@@ -151,3 +151,82 @@ fn reverse_complement(seq: &str) -> String {
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::paf_parser::PafRecord;
+    use std::io::BufWriter;
+
+    #[test]
+    fn test_false_mismatch_detection() {
+        let query_fasta_content = ">query\nACTGACTGACTG";
+        let target_fasta_content = ">target\nACTGACTGACTG";
+        let cigar = "5=1X6=";
+
+        let paf_record = PafRecord {
+            query_name: "query".to_string(),
+            query_length: 12,
+            query_start: 0,
+            query_end: 12,
+            strand: '+',
+            target_name: "target".to_string(),
+            target_length: 12,
+            target_start: 0,
+            target_end: 12,
+            cigar: cigar.to_string(),
+        };
+
+        let mut fasta_reader = MultiFastaReader::from_strings(query_fasta_content, target_fasta_content).unwrap();
+        let mut output = BufWriter::new(Vec::new());
+
+        let result = validate_record(&paf_record, &mut fasta_reader, "omit", &mut output);
+
+        assert!(result.is_err(), "Expected an error due to CIGAR mismatch, but got success");
+
+        if let Err(e) = result {
+            let error_message = e.to_string();
+            assert!(
+                error_message.contains("CIGAR mismatch at operation 1"),
+                "Unexpected error message: {}",
+                error_message
+            );
+        }
+    }
+
+    #[test]
+    fn test_false_match_detection() {
+        let query_fasta_content = ">query\nACTGACCGACTG";
+        let target_fasta_content = ">target\nACTGACTGACTG";
+        let cigar = "12=";
+
+        let paf_record = PafRecord {
+            query_name: "query".to_string(),
+            query_length: 12,
+            query_start: 0,
+            query_end: 12,
+            strand: '+',
+            target_name: "target".to_string(),
+            target_length: 12,
+            target_start: 0,
+            target_end: 12,
+            cigar: cigar.to_string(),
+        };
+
+        let mut fasta_reader = MultiFastaReader::from_strings(query_fasta_content, target_fasta_content).unwrap();
+        let mut output = BufWriter::new(Vec::new());
+
+        let result = validate_record(&paf_record, &mut fasta_reader, "omit", &mut output);
+
+        assert!(result.is_err(), "Expected an error due to sequence mismatch, but got success");
+
+        if let Err(e) = result {
+            let error_message = e.to_string();
+            assert!(
+                error_message.contains("CIGAR mismatch at operation 0"),
+                "Unexpected error message: {}",
+                error_message
+            );
+        }
+    }
+}

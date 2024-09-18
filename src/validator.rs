@@ -8,16 +8,42 @@ pub fn validate_record(
     fasta_reader: &mut MultiFastaReader,
     error_mode: &str,
 ) -> Result<()> {
-    let query_seq = fasta_reader
+    // Fetch sequences
+    let mut query_seq = fasta_reader
         .fetch_query_sequence(&record.query_name, record.query_start, record.query_end)
-        .context(format!("Failed to fetch query sequence: {} ({}:{})", record.query_name, record.query_start, record.query_end))?;
-    let target_seq = fasta_reader
+        .context(format!(
+            "Failed to fetch query sequence: {} ({}:{})",
+            record.query_name, record.query_start, record.query_end
+        ))?;
+    let mut target_seq = fasta_reader
         .fetch_target_sequence(&record.target_name, record.target_start, record.target_end)
-        .context(format!("Failed to fetch target sequence: {} ({}:{})", record.target_name, record.target_start, record.target_end))?;
+        .context(format!(
+            "Failed to fetch target sequence: {} ({}:{})",
+            record.target_name, record.target_start, record.target_end
+        ))?;
 
-    println!("Query sequence: {} ({}:{}) length: {}", record.query_name, record.query_start, record.query_end, query_seq.len());
-    println!("Target sequence: {} ({}:{}) length: {}", record.target_name, record.target_start, record.target_end, target_seq.len());
+    // Handle reverse strand
+    if record.strand == '-' {
+        query_seq = reverse_complement(&query_seq);
+    }
 
+    // Convert sequences to uppercase and to byte arrays
+    let query_seq = query_seq.to_uppercase().into_bytes();
+    let target_seq = target_seq.to_uppercase().into_bytes();
+
+    // Debug statements
+    println!(
+        "Expected query length: {}, fetched length: {}",
+        record.query_end - record.query_start,
+        query_seq.len()
+    );
+    println!(
+        "Expected target length: {}, fetched length: {}",
+        record.target_end - record.target_start,
+        target_seq.len()
+    );
+
+    // Parse CIGAR string
     let cigar_ops = parse_cigar(&record.cigar).context("Failed to parse CIGAR string")?;
 
     let mut q_idx: usize = 0;
@@ -27,40 +53,46 @@ pub fn validate_record(
     for (op_idx, op) in cigar_ops.iter().enumerate() {
         match op {
             CigarOp::Match(len) => {
-                let q_slice = &query_seq[q_idx..q_idx + *len as usize];
-                let t_slice = &target_seq[t_idx..t_idx + *len as usize];
-                for (i, (q, t)) in q_slice.chars().zip(t_slice.chars()).enumerate() {
+                let len = *len as usize;
+                let q_slice = &query_seq[q_idx..q_idx + len];
+                let t_slice = &target_seq[t_idx..t_idx + len];
+                for i in 0..len {
+                    let q = q_slice[i];
+                    let t = t_slice[i];
                     if q != t {
                         let error_message = format!(
                             "Mismatch in Match operation at CIGAR op {}, position {}: query {} vs target {}",
                             op_idx,
                             record.query_start + q_idx + i,
-                            q,
-                            t
+                            q as char,
+                            t as char
                         );
                         errors.push(error_message);
                     }
                 }
-                q_idx += *len as usize;
-                t_idx += *len as usize;
+                q_idx += len;
+                t_idx += len;
             }
             CigarOp::Mismatch(len) => {
-                let q_slice = &query_seq[q_idx..q_idx + *len as usize];
-                let t_slice = &target_seq[t_idx..t_idx + *len as usize];
-                for (i, (q, t)) in q_slice.chars().zip(t_slice.chars()).enumerate() {
+                let len = *len as usize;
+                let q_slice = &query_seq[q_idx..q_idx + len];
+                let t_slice = &target_seq[t_idx..t_idx + len];
+                for i in 0..len {
+                    let q = q_slice[i];
+                    let t = t_slice[i];
                     if q == t {
                         let error_message = format!(
                             "Match in Mismatch operation at CIGAR op {}, position {}: query {} vs target {}",
                             op_idx,
                             record.query_start + q_idx + i,
-                            q,
-                            t
+                            q as char,
+                            t as char
                         );
                         errors.push(error_message);
                     }
                 }
-                q_idx += *len as usize;
-                t_idx += *len as usize;
+                q_idx += len;
+                t_idx += len;
             }
             CigarOp::Insertion(len) => {
                 q_idx += *len as usize;
@@ -72,14 +104,14 @@ pub fn validate_record(
     }
 
     // Verify endpoints
-    if q_idx != (record.query_end - record.query_start) {
+    if q_idx != (record.query_end - record.query_start) as usize {
         errors.push(format!(
             "Query sequence length mismatch after CIGAR operations: expected {}, got {}",
             record.query_end - record.query_start,
             q_idx
         ));
     }
-    if t_idx != (record.target_end - record.target_start) {
+    if t_idx != (record.target_end - record.target_start) as usize {
         errors.push(format!(
             "Target sequence length mismatch after CIGAR operations: expected {}, got {}",
             record.target_end - record.target_start,
@@ -103,4 +135,18 @@ fn report_error(error_mode: &str, message: &str, record: &PafRecord) -> Result<(
         anyhow::bail!("{}", message);
     }
     Ok(())
+}
+
+fn reverse_complement(seq: &str) -> String {
+    seq.chars()
+        .rev()
+        .map(|base| match base {
+            'A' | 'a' => 'T',
+            'T' | 't' => 'A',
+            'G' | 'g' => 'C',
+            'C' | 'c' => 'G',
+            'N' | 'n' => 'N',
+            _ => 'N',
+        })
+        .collect()
 }

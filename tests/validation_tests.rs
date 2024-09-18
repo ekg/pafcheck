@@ -112,16 +112,17 @@ fn test_false_mismatch_detection() -> Result<()> {
     let mut fasta_reader = MultiFastaReader::new(query_fasta.path(), target_fasta.path())?;
 
     let mut output = Vec::new();
-    {
+    let result = {
         let mut writer = BufWriter::new(&mut output);
         let result = validate_record(&paf_record, &mut fasta_reader, "report", &mut writer);
         writer.flush()?;
-        
-        println!("Validation result: {:?}", result);
-        println!("Output: {}", String::from_utf8_lossy(&output));
+        result
+    };
+    
+    println!("Validation result: {:?}", result);
+    println!("Output: {}", String::from_utf8_lossy(&output));
 
-        assert!(result.is_ok(), "Expected validation to succeed in report mode");
-    }
+    assert!(result.is_ok(), "Expected validation to succeed in report mode");
 
     let output_str = String::from_utf8_lossy(&output);
     assert!(

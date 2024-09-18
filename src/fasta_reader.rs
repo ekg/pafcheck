@@ -1,4 +1,4 @@
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 use rust_htslib::faidx;
 use std::path::Path;
 
@@ -13,14 +13,9 @@ impl FastaReader {
         Ok(FastaReader { reader })
     }
 
-    pub fn fetch_sequence(
-        &self,
-        seq_name: &str,
-        start: usize,
-        end: usize,
-    ) -> Result<String> {
+    pub fn fetch_sequence(&self, seq_name: &str, start: usize, end: usize) -> Result<String> {
         self.reader
-            .fetch_seq_string(seq_name, start, end - 1)  // Adjust for 0-based indexing
+            .fetch_seq_string(seq_name, start, end - 1) // Adjust for 0-based indexing
             .context("Failed to fetch sequence")
     }
 }

@@ -1,23 +1,19 @@
-use anyhow::{Result, Context};
 use crate::cigar_parser::{parse_cigar, CigarOp};
 use crate::fasta_reader::FastaReader;
 use crate::paf_parser::PafRecord;
+use anyhow::{Context, Result};
 
 pub fn validate_record(
     record: &PafRecord,
     fasta_reader: &mut FastaReader,
     error_mode: &str,
 ) -> Result<()> {
-    let query_seq = fasta_reader.fetch_sequence(
-        &record.query_name,
-        record.query_start,
-        record.query_end
-    ).context("Failed to fetch query sequence")?;
-    let target_seq = fasta_reader.fetch_sequence(
-        &record.target_name,
-        record.target_start,
-        record.target_end
-    ).context("Failed to fetch target sequence")?;
+    let query_seq = fasta_reader
+        .fetch_sequence(&record.query_name, record.query_start, record.query_end)
+        .context("Failed to fetch query sequence")?;
+    let target_seq = fasta_reader
+        .fetch_sequence(&record.target_name, record.target_start, record.target_end)
+        .context("Failed to fetch target sequence")?;
 
     // Debug print
     println!("Query sequence length: {}", query_seq.len());
@@ -37,7 +33,9 @@ pub fn validate_record(
                         error_mode,
                         &format!(
                             "Mismatch in Match operation at position {}: query {} vs target {}",
-                            record.query_start + q_idx, q_slice, t_slice
+                            record.query_start + q_idx,
+                            q_slice,
+                            t_slice
                         ),
                         record,
                     )?;
@@ -53,7 +51,9 @@ pub fn validate_record(
                         error_mode,
                         &format!(
                             "Match in Mismatch operation at position {}: query {} vs target {}",
-                            record.query_start + q_idx, q_slice, t_slice
+                            record.query_start + q_idx,
+                            q_slice,
+                            t_slice
                         ),
                         record,
                     )?;

@@ -1,5 +1,5 @@
+use anyhow::{Context, Result};
 use clap::{App, Arg};
-use anyhow::{Result, Context};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
@@ -46,25 +46,26 @@ fn main() -> Result<()> {
     let paf_path = matches.value_of("paf").unwrap();
     let error_mode = matches.value_of("error-mode").unwrap();
 
-    validate_paf(fasta_path, paf_path, error_mode)
-        .context("Failed to validate PAF file")?;
+    validate_paf(fasta_path, paf_path, error_mode).context("Failed to validate PAF file")?;
 
     Ok(())
 }
 
 fn validate_paf(fasta_path: &str, paf_path: &str, error_mode: &str) -> Result<()> {
-    let mut fasta_reader = FastaReader::new(fasta_path)
-        .context("Failed to create FASTA reader")?;
-    let paf_file = File::open(paf_path)
-        .context("Failed to open PAF file")?;
+    let mut fasta_reader = FastaReader::new(fasta_path).context("Failed to create FASTA reader")?;
+    let paf_file = File::open(paf_path).context("Failed to open PAF file")?;
     let reader = BufReader::new(paf_file);
 
     for (line_number, line) in reader.lines().enumerate() {
         let line = line.context("Failed to read PAF line")?;
-        let record = PafRecord::from_line(&line)
-            .context(format!("Failed to parse PAF record at line {}", line_number + 1))?;
-        validate_record(&record, &mut fasta_reader, error_mode)
-            .context(format!("Failed to validate PAF record at line {}", line_number + 1))?;
+        let record = PafRecord::from_line(&line).context(format!(
+            "Failed to parse PAF record at line {}",
+            line_number + 1
+        ))?;
+        validate_record(&record, &mut fasta_reader, error_mode).context(format!(
+            "Failed to validate PAF record at line {}",
+            line_number + 1
+        ))?;
     }
 
     println!("PAF validation completed successfully.");

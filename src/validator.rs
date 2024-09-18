@@ -18,7 +18,7 @@ pub struct ValidationError {
 
 impl std::fmt::Display for ValidationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Validation errors: {}", self.errors.iter().map(|(_, msg)| msg).collect::<Vec<_>>().join("; "))
+        write!(f, "Validation errors: {}", self.errors.iter().map(|(_, msg)| msg).cloned().collect::<Vec<String>>().join("; "))
     }
 }
 
@@ -34,7 +34,7 @@ pub fn validate_record(
             "Failed to fetch query sequence: {} ({}:{})",
             record.query_name, record.query_start, record.query_end
         ))?;
-    let mut target_seq = fasta_reader
+    let target_seq = fasta_reader
         .fetch_target_sequence(&record.target_name, record.target_start, record.target_end)
         .context(format!(
             "Failed to fetch target sequence: {} ({}:{})",

@@ -56,6 +56,7 @@ pub fn validate_record<W: Write>(
     let target_seq = target_seq.to_uppercase().into_bytes();
 
     let cigar_ops = parse_cigar(&record.cigar).context("Failed to parse CIGAR string")?;
+    println!("Parsed CIGAR: {:?}", cigar_ops);
 
     let mut q_idx: usize = 0;
     let mut t_idx: usize = 0;
@@ -69,6 +70,7 @@ pub fn validate_record<W: Write>(
                     .ok_or_else(|| anyhow::anyhow!("Query sequence index out of range"))?;
                 let t_slice = target_seq.get(t_idx..t_idx + len)
                     .ok_or_else(|| anyhow::anyhow!("Target sequence index out of range"))?;
+                
                 for i in 0..len {
                     let q = q_slice[i];
                     let t = t_slice[i];
@@ -76,15 +78,17 @@ pub fn validate_record<W: Write>(
                     let expected_match = matches!(op, CigarOp::Match(_));
                     
                     if is_match != expected_match {
+                        let error_type = if expected_match {
+                            ErrorType::Mismatch
+                        } else {
+                            ErrorType::CigarMismatch
+                        };
+
                         let error_message = format!(
-                            "{} at CIGAR op {}, position {}: query {} vs target {}",
-                            if expected_match { "Mismatch in Match operation" } else { "Match in Mismatch operation" },
-                            op_idx,
-                            record.query_start + q_idx + i,
-                            q as char,
-                            t as char
+                            "CIGAR mismatch at operation {}: query char '{}' at pos {} vs target char '{}' at pos {}",
+                            op_idx, q as char, record.query_start + q_idx + i, t as char, record.target_start + t_idx + i
                         );
-                        errors.push((ErrorType::Mismatch, error_message));
+                        errors.push((error_type, error_message));
                     }
                 }
                 q_idx += len;

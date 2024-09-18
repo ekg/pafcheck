@@ -7,3 +7,6 @@ edition = "2021"
 clap = "3.2"
 rust-htslib = "0.40"
 anyhow = "1.0"
+tempfile = "3.2"
+
+[dev-dependencies]

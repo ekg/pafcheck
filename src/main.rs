@@ -3,14 +3,9 @@ use anyhow::{Result, Context};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
-mod paf_parser;
-mod fasta_reader;
-mod cigar_parser;
-mod validator;
-
-use crate::fasta_reader::FastaReader;
-use crate::paf_parser::PafRecord;
-use crate::validator::validate_record;
+use pafcheck::fasta_reader::FastaReader;
+use pafcheck::paf_parser::PafRecord;
+use pafcheck::validator::validate_record;
 
 fn main() -> Result<()> {
     let matches = App::new("PAF Validator")

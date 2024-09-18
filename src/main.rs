@@ -80,7 +80,8 @@ fn validate_paf(query_fasta: &str, target_fasta: &str, paf_path: &str, error_mod
             line_number + 1
         ))?;
         
-        match validate_record(&record, &mut fasta_reader, error_mode) {
+        let mut output = BufWriter::new(std::io::stdout());
+        match validate_record(&record, &mut fasta_reader, error_mode, &mut output) {
             Ok(_) => {},
             Err(e) => {
                 error_count += 1;

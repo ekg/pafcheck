@@ -39,7 +39,8 @@ fn run_validation(
     for line in paf_reader.lines() {
         let line = line?;
         let record = PafRecord::from_line(&line)?;
-        validate_record(&record, &mut fasta_reader, error_mode)?;
+        let mut output = BufWriter::new(Vec::new());
+        validate_record(&record, &mut fasta_reader, error_mode, &mut output)?;
     }
 
     Ok(())

@@ -74,7 +74,8 @@ fn test_false_match_detection() -> Result<()> {
 
     let mut fasta_reader = MultiFastaReader::new(query_fasta.path(), target_fasta.path())?;
 
-    let result = validate_record(&paf_record, &mut fasta_reader, "report");
+    let mut output = BufWriter::new(Vec::new());
+    let result = validate_record(&paf_record, &mut fasta_reader, "report", &mut output);
 
     assert!(result.is_err(), "Expected validation to fail, but it succeeded");
 
@@ -110,7 +111,8 @@ fn test_false_mismatch_detection() -> Result<()> {
 
     let mut fasta_reader = MultiFastaReader::new(query_fasta.path(), target_fasta.path())?;
 
-    let result = validate_record(&paf_record, &mut fasta_reader, "report");
+    let mut output = BufWriter::new(Vec::new());
+    let result = validate_record(&paf_record, &mut fasta_reader, "report", &mut output);
 
     assert!(result.is_err(), "Expected validation to fail, but it succeeded");
 

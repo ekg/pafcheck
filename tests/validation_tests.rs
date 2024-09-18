@@ -43,8 +43,8 @@ fn test_mismatch_detection() -> Result<()> {
         let mut writer = BufWriter::new(&mut output);
         let result = validate_record(&paf_record, &mut fasta_reader, "report", &mut writer);
         assert!(
-            result.is_ok(),
-            "Expected validation to succeed in report mode"
+            result.is_err(),
+            "Expected validation to fail due to mismatch"
         );
         writer.flush()?;
     }

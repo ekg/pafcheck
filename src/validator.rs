@@ -2,6 +2,7 @@ use crate::cigar_parser::{parse_cigar, CigarOp};
 use crate::fasta_reader::MultiFastaReader;
 use crate::paf_parser::PafRecord;
 use anyhow::{Context, Result};
+use std::collections::HashMap;
 use std::io::Write;
 use thiserror::Error;
 
@@ -14,14 +15,23 @@ pub enum ErrorType {
 
 #[derive(Error, Debug)]
 pub struct ValidationError {
-    pub errors: Vec<(ErrorType, String)>,
+    pub errors: HashMap<ErrorType, ErrorInfo>,
+}
+
+#[derive(Debug)]
+pub struct ErrorInfo {
+    pub first_message: String,
+    pub count: usize,
 }
 
 impl std::fmt::Display for ValidationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "Validation errors:")?;
-        for (error_type, msg) in &self.errors {
-            writeln!(f, "  - {:?}: {}", error_type, msg)?;
+        for (error_type, error_info) in &self.errors {
+            writeln!(f, "  - {:?}: {}", error_type, error_info.first_message)?;
+            if error_info.count > 1 {
+                writeln!(f, "  - {:?}: Total occurrences: {}", error_type, error_info.count)?;
+            }
         }
         Ok(())
     }
@@ -59,7 +69,7 @@ pub fn validate_record<W: Write>(
 
     let mut q_idx: usize = 0;
     let mut t_idx: usize = 0;
-    let mut errors: Vec<(ErrorType, String)> = Vec::new();
+    let mut errors: HashMap<ErrorType, ErrorInfo> = HashMap::new();
 
     for (op_idx, op) in cigar_ops.iter().enumerate() {
         match op {
@@ -89,7 +99,13 @@ pub fn validate_record<W: Write>(
                             "CIGAR mismatch at operation {}: query char '{}' at pos {} vs target char '{}' at pos {}",
                             op_idx, q as char, record.query_start + q_idx + i, t as char, record.target_start + t_idx + i
                         );
-                        errors.push((error_type, error_message));
+
+                        errors.entry(error_type)
+                            .and_modify(|e| e.count += 1)
+                            .or_insert(ErrorInfo {
+                                first_message: error_message,
+                                count: 1,
+                            });
                     }
                 }
                 q_idx += len;
@@ -105,30 +121,41 @@ pub fn validate_record<W: Write>(
     }
 
     if q_idx != query_seq.len() {
-        errors.push((
-            ErrorType::LengthMismatch,
-            format!(
-                "Query sequence length mismatch: CIGAR implies {}, actual length {}",
-                q_idx,
-                query_seq.len()
-            ),
-        ));
+        let error_type = ErrorType::LengthMismatch;
+        let error_message = format!(
+            "Query sequence length mismatch: CIGAR implies {}, actual length {}",
+            q_idx,
+            query_seq.len()
+        );
+        errors.entry(error_type)
+            .and_modify(|e| e.count += 1)
+            .or_insert(ErrorInfo {
+                first_message: error_message,
+                count: 1,
+            });
     }
     if t_idx != target_seq.len() {
-        errors.push((
-            ErrorType::LengthMismatch,
-            format!(
-                "Target sequence length mismatch: CIGAR implies {}, actual length {}",
-                t_idx,
-                target_seq.len()
-            ),
-        ));
+        let error_type = ErrorType::LengthMismatch;
+        let error_message = format!(
+            "Target sequence length mismatch: CIGAR implies {}, actual length {}",
+            t_idx,
+            target_seq.len()
+        );
+        errors.entry(error_type)
+            .and_modify(|e| e.count += 1)
+            .or_insert(ErrorInfo {
+                first_message: error_message,
+                count: 1,
+            });
     }
 
     if !errors.is_empty() {
         if error_mode == "report" {
-            for (error_type, msg) in &errors {
-                writeln!(output, "{:?}: {}", error_type, msg)?;
+            for (error_type, error_info) in &errors {
+                writeln!(output, "{:?}: {}", error_type, error_info.first_message)?;
+                if error_info.count > 1 {
+                    writeln!(output, "{:?}: Total occurrences: {}", error_type, error_info.count)?;
+                }
             }
             Ok(())
         } else {
@@ -192,9 +219,9 @@ mod tests {
         if let Err(e) = result {
             if let Some(validation_error) = e.downcast_ref::<ValidationError>() {
                 assert!(
-                    validation_error.errors.iter().any(|(error_type, msg)| {
+                    validation_error.errors.iter().any(|(error_type, error_info)| {
                         *error_type == ErrorType::CigarMismatch
-                            && msg.contains("CIGAR mismatch at operation 1")
+                            && error_info.first_message.contains("CIGAR mismatch at operation 1")
                     }),
                     "Expected CIGAR mismatch error at operation 1, but got: {:?}",
                     validation_error.errors
@@ -238,9 +265,9 @@ mod tests {
         if let Err(e) = result {
             if let Some(validation_error) = e.downcast_ref::<ValidationError>() {
                 assert!(
-                    validation_error.errors.iter().any(|(error_type, msg)| {
+                    validation_error.errors.iter().any(|(error_type, error_info)| {
                         *error_type == ErrorType::Mismatch
-                            && msg.contains("CIGAR mismatch at operation 0")
+                            && error_info.first_message.contains("CIGAR mismatch at operation 0")
                     }),
                     "Expected Mismatch error at operation 0, but got: {:?}",
                     validation_error.errors

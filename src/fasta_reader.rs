@@ -71,12 +71,12 @@ fn parse_fasta(fasta_content: &str) -> Result<HashMap<String, String>> {
     let mut current_seq = String::new();
 
     for line in fasta_content.lines() {
-        if line.starts_with('>') {
+        if let Some(name) = line.strip_prefix('>') {
             if !current_seq_name.is_empty() {
                 sequences.insert(current_seq_name, current_seq);
                 current_seq = String::new();
             }
-            current_seq_name = line[1..].trim().to_string();
+            current_seq_name = name.trim().to_string();
         } else {
             current_seq.push_str(line.trim());
         }

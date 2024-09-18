@@ -72,14 +72,14 @@ pub fn validate_record(
 
     // Verify endpoints
     if q_idx != (record.query_end - record.query_start) {
-        report_error(
+        let _ = report_error(
             error_mode,
             "Query sequence length mismatch after CIGAR operations",
             record,
         );
     }
     if t_idx != (record.target_end - record.target_start) {
-        report_error(
+        let _ = report_error(
             error_mode,
             "Target sequence length mismatch after CIGAR operations",
             record,

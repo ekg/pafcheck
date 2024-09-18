@@ -23,20 +23,24 @@ fn create_temp_paf(entries: &[&str]) -> Result<NamedTempFile> {
     Ok(temp_file)
 }
 
-fn run_validation(fasta_content: &[(&str, &str)], paf_content: &[&str], error_mode: &str) -> Result<()> {
+fn run_validation(fasta_content: &[(&str, &str)], paf_content: &[&str], error_mode: &str) -> Result<Vec<String>> {
     let fasta_file = create_temp_fasta(fasta_content)?;
     let paf_file = create_temp_paf(paf_content)?;
 
     let mut fasta_reader = FastaReader::new(fasta_file.path())?;
     let paf_reader = BufReader::new(File::open(paf_file.path())?);
 
+    let mut errors = Vec::new();
+
     for line in paf_reader.lines() {
         let line = line?;
         let record = PafRecord::from_line(&line)?;
-        validate_record(&record, &mut fasta_reader, error_mode)?;
+        if let Err(e) = validate_record(&record, &mut fasta_reader, error_mode) {
+            errors.push(e.to_string());
+        }
     }
 
-    Ok(())
+    Ok(errors)
 }
 
 #[test]

@@ -185,12 +185,17 @@ mod tests {
         assert!(result.is_err(), "Expected an error due to CIGAR mismatch, but got success");
 
         if let Err(e) = result {
-            let error_message = e.to_string();
-            assert!(
-                error_message.contains("CIGAR mismatch at operation 1"),
-                "Unexpected error message: {}",
-                error_message
-            );
+            if let Some(validation_error) = e.downcast_ref::<ValidationError>() {
+                assert!(
+                    validation_error.errors.iter().any(|(error_type, msg)| {
+                        *error_type == ErrorType::CigarMismatch && msg.contains("CIGAR mismatch at operation 1")
+                    }),
+                    "Expected CIGAR mismatch error at operation 1, but got: {:?}",
+                    validation_error.errors
+                );
+            } else {
+                panic!("Expected ValidationError, but got: {}", e);
+            }
         }
     }
 
@@ -221,12 +226,17 @@ mod tests {
         assert!(result.is_err(), "Expected an error due to sequence mismatch, but got success");
 
         if let Err(e) = result {
-            let error_message = e.to_string();
-            assert!(
-                error_message.contains("CIGAR mismatch at operation 0"),
-                "Unexpected error message: {}",
-                error_message
-            );
+            if let Some(validation_error) = e.downcast_ref::<ValidationError>() {
+                assert!(
+                    validation_error.errors.iter().any(|(error_type, msg)| {
+                        *error_type == ErrorType::Mismatch && msg.contains("CIGAR mismatch at operation 0")
+                    }),
+                    "Expected Mismatch error at operation 0, but got: {:?}",
+                    validation_error.errors
+                );
+            } else {
+                panic!("Expected ValidationError, but got: {}", e);
+            }
         }
     }
 }

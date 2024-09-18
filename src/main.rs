@@ -87,19 +87,27 @@ fn validate_paf(
         ))?;
 
         let mut output = Vec::new();
-        match validate_record(&record, &mut fasta_reader, error_mode, &mut output) {
-            Ok(_) => {}
-            Err(e) => {
-                if let Some(validation_error) = e.downcast_ref::<ValidationError>() {
-                    error_count += validation_error.errors.len();
-                    for (error_type, error_msg) in &validation_error.errors {
-                        *error_type_counts.entry(error_type.clone()).or_insert(0) += 1;
-                        println!("[pafcheck] Error at line {}: {:?}: {}", line_number + 1, error_type, error_msg);
+        if let Err(e) = validate_record(&record, &mut fasta_reader, error_mode, &mut output) {
+            if let Some(validation_error) = e.downcast_ref::<ValidationError>() {
+                for (error_type, error_info) in &validation_error.errors {
+                    *error_type_counts.entry(error_type.clone()).or_insert(0) += error_info.count;
+                    println!(
+                        "[pafcheck] Error at line {}: {:?}: {}",
+                        line_number + 1,
+                        error_type,
+                        error_info.first_message
+                    );
+                    if error_info.count > 1 {
+                        println!(
+                            "[pafcheck] {:?}: Total occurrences: {}",
+                            error_type,
+                            error_info.count
+                        );
                     }
-                } else {
-                    error_count += 1;
-                    println!("[pafcheck] Error at line {}: {}", line_number + 1, e);
                 }
+            } else {
+                error_count += 1;
+                println!("[pafcheck] Error at line {}: {}", line_number + 1, e);
             }
         }
     }

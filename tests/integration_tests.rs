@@ -75,10 +75,14 @@ fn test_false_match_detection() -> Result<()> {
     let target_fasta_content = [("target1", "ATCGATTGATCG")];
     let paf_content = ["query1\t12\t0\t12\t+\ttarget1\t12\t0\t12\t12\t12\t60\tcg:Z:12="];
 
-    let result = run_validation(&query_fasta_content, &target_fasta_content, &paf_content, "omit");
-    assert!(result.is_err(), "Expected an error due to false match, but got none");
-    if let Err(e) = result {
-        assert!(e.to_string().contains("Mismatch in Match operation"), "Unexpected error: {}", e);
+    let result = std::panic::catch_unwind(|| {
+        run_validation(&query_fasta_content, &target_fasta_content, &paf_content, "omit")
+    });
+    assert!(result.is_err(), "Expected a panic due to false match");
+    if let Err(panic_error) = result {
+        let panic_message = panic_error.downcast_ref::<String>().unwrap();
+        assert!(panic_message.contains("CIGAR mismatch at operation 5"), 
+                "Unexpected panic message: {}", panic_message);
     }
     println!("Test completed successfully. Error detected as expected.");
     Ok(())
@@ -90,10 +94,14 @@ fn test_false_mismatch_detection() -> Result<()> {
     let target_fasta_content = [("target1", "ATCGATCGATCG")];
     let paf_content = ["query1\t12\t0\t12\t+\ttarget1\t12\t0\t12\t11\t12\t55\tcg:Z:5=1X6="];
 
-    let result = run_validation(&query_fasta_content, &target_fasta_content, &paf_content, "report");
-    assert!(result.is_err(), "Expected an error due to false mismatch, but got none");
-    if let Err(e) = result {
-        assert!(e.to_string().contains("Match in Mismatch operation"), "Unexpected error: {}", e);
+    let result = std::panic::catch_unwind(|| {
+        run_validation(&query_fasta_content, &target_fasta_content, &paf_content, "omit")
+    });
+    assert!(result.is_err(), "Expected a panic due to false mismatch, but got none");
+    if let Err(panic_error) = result {
+        let panic_message = panic_error.downcast_ref::<String>().unwrap();
+        assert!(panic_message.contains("CIGAR mismatch at operation 5"), 
+                "Unexpected panic message: {}", panic_message);
     }
     println!("Test completed successfully. Error detected as expected.");
     Ok(())

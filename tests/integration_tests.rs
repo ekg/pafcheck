@@ -111,7 +111,7 @@ fn test_deletion() -> Result<()> {
     let target_fasta_content = [("target1", "ATCGATTACGATCG")];
     let paf_content = ["query1\t12\t0\t12\t+\ttarget1\t14\t0\t14\t12\t14\t60\tcg:Z:6=2D6="];
 
-    let errors = run_validation(&query_fasta_content, &target_fasta_content, &paf_content, "report")?;
-    assert!(errors.is_empty(), "Expected no errors, but got: {:?}", errors);
+    let result = run_validation(&query_fasta_content, &target_fasta_content, &paf_content, "report");
+    assert!(result.is_ok(), "Expected no errors, but got: {:?}", result);
     Ok(())
 }

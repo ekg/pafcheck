@@ -22,75 +22,89 @@ pub fn validate_record(
 
     let mut q_idx: usize = 0;
     let mut t_idx: usize = 0;
-    for op in cigar_ops {
+    for (op_idx, op) in cigar_ops.iter().enumerate() {
         match op {
             CigarOp::Match(len) => {
-                let q_slice = &query_seq[q_idx..q_idx + len as usize];
-                let t_slice = &target_seq[t_idx..t_idx + len as usize];
-                if q_slice != t_slice {
-                    report_error(
-                        error_mode,
-                        &format!(
-                            "Mismatch in Match operation at position {}: query {} vs target {}",
-                            record.query_start + q_idx,
-                            q_slice,
-                            t_slice
-                        ),
-                        record,
-                    )?;
+                let q_slice = &query_seq[q_idx..q_idx + *len as usize];
+                let t_slice = &target_seq[t_idx..t_idx + *len as usize];
+                for (i, (q, t)) in q_slice.chars().zip(t_slice.chars()).enumerate() {
+                    if q != t {
+                        report_error(
+                            error_mode,
+                            &format!(
+                                "Mismatch in Match operation at CIGAR op {}, position {}: query {} vs target {}",
+                                op_idx,
+                                record.query_start + q_idx + i,
+                                q,
+                                t
+                            ),
+                            record,
+                        )?;
+                    }
                 }
-                q_idx += len as usize;
-                t_idx += len as usize;
+                q_idx += *len as usize;
+                t_idx += *len as usize;
             }
             CigarOp::Mismatch(len) => {
-                let q_slice = &query_seq[q_idx..q_idx + len as usize];
-                let t_slice = &target_seq[t_idx..t_idx + len as usize];
-                if q_slice == t_slice {
-                    report_error(
-                        error_mode,
-                        &format!(
-                            "Match in Mismatch operation at position {}: query {} vs target {}",
-                            record.query_start + q_idx,
-                            q_slice,
-                            t_slice
-                        ),
-                        record,
-                    )?;
+                let q_slice = &query_seq[q_idx..q_idx + *len as usize];
+                let t_slice = &target_seq[t_idx..t_idx + *len as usize];
+                for (i, (q, t)) in q_slice.chars().zip(t_slice.chars()).enumerate() {
+                    if q == t {
+                        report_error(
+                            error_mode,
+                            &format!(
+                                "Match in Mismatch operation at CIGAR op {}, position {}: query {} vs target {}",
+                                op_idx,
+                                record.query_start + q_idx + i,
+                                q,
+                                t
+                            ),
+                            record,
+                        )?;
+                    }
                 }
-                q_idx += len as usize;
-                t_idx += len as usize;
+                q_idx += *len as usize;
+                t_idx += *len as usize;
             }
             CigarOp::Insertion(len) => {
-                q_idx += len as usize;
+                q_idx += *len as usize;
             }
             CigarOp::Deletion(len) => {
-                t_idx += len as usize;
+                t_idx += *len as usize;
             }
         }
     }
 
     // Verify endpoints
     if q_idx != (record.query_end - record.query_start) {
-        let _ = report_error(
+        report_error(
             error_mode,
-            "Query sequence length mismatch after CIGAR operations",
+            &format!(
+                "Query sequence length mismatch after CIGAR operations: expected {}, got {}",
+                record.query_end - record.query_start,
+                q_idx
+            ),
             record,
-        );
+        )?;
     }
     if t_idx != (record.target_end - record.target_start) {
-        let _ = report_error(
+        report_error(
             error_mode,
-            "Target sequence length mismatch after CIGAR operations",
+            &format!(
+                "Target sequence length mismatch after CIGAR operations: expected {}, got {}",
+                record.target_end - record.target_start,
+                t_idx
+            ),
             record,
-        );
+        )?;
     }
 
     Ok(())
 }
 
 fn report_error(error_mode: &str, message: &str, record: &PafRecord) -> Result<()> {
+    println!("[PAF_CHECK] {}: {:?}", message, record);
     if error_mode == "report" {
-        println!("[PAF_CHECK] {}: {:?}", message, record);
         anyhow::bail!("{}", message);
     }
     Ok(())

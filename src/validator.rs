@@ -2,7 +2,7 @@ use crate::cigar_parser::{parse_cigar, CigarOp};
 use crate::fasta_reader::MultiFastaReader;
 use crate::paf_parser::PafRecord;
 use anyhow::{Context, Result};
-use std::io::{BufWriter, Write};
+use std::io::Write;
 use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -32,7 +32,7 @@ pub fn validate_record<W: Write>(
     fasta_reader: &mut MultiFastaReader,
     error_mode: &str,
     output: &mut W,
-) -> Result<(), ValidationError> {
+) -> Result<()> {
     let query_seq = fasta_reader
         .fetch_query_sequence(&record.query_name, record.query_start, record.query_end)
         .context(format!(
@@ -126,7 +126,7 @@ pub fn validate_record<W: Write>(
     }
 
     if !errors.is_empty() {
-        Err(ValidationError { errors })
+        Err(anyhow::anyhow!(ValidationError { errors }))
     } else {
         Ok(())
     }

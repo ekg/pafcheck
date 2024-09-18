@@ -3,7 +3,7 @@ use pafcheck::fasta_reader::MultiFastaReader;
 use pafcheck::paf_parser::PafRecord;
 use pafcheck::validator::validate_record;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Write, BufWriter};
 use tempfile::NamedTempFile;
 
 fn create_temp_fasta(sequences: &[(&str, &str)]) -> Result<NamedTempFile> {

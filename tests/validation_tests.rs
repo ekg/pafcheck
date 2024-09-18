@@ -2,7 +2,7 @@ use anyhow::Result;
 use pafcheck::fasta_reader::MultiFastaReader;
 use pafcheck::paf_parser::PafRecord;
 use pafcheck::validator::validate_record;
-use std::io::Write;
+use std::io::{Write, stdout};
 use tempfile::NamedTempFile;
 
 fn create_temp_fasta(sequences: &[(&str, &str)]) -> Result<NamedTempFile> {
@@ -37,15 +37,18 @@ fn test_mismatch_detection() -> Result<()> {
     // Create MultiFastaReader
     let mut fasta_reader = MultiFastaReader::new(query_fasta.path(), target_fasta.path())?;
 
-    // Validate the record
-    let result = validate_record(&paf_record, &mut fasta_reader, "report");
+    // Capture stdout
+    let mut output = Vec::new();
+    {
+        let mut stdout = stdout();
+        let result = validate_record(&paf_record, &mut fasta_reader, "report");
+        assert!(result.is_ok(), "Expected validation to succeed, but it failed");
+        output = stdout.buffer().to_vec();
+    }
 
-    assert!(result.is_ok(), "Expected validation to succeed, but it failed");
-
-    // The validation should succeed, but we expect it to report the mismatch
-    // We can capture the output to check if the mismatch was reported
-    let output = std::io::stdout().to_string();
-    assert!(output.contains("Mismatch in Match operation at CIGAR op 0, position 4: query C vs target T"),
+    // Convert captured output to string
+    let output_str = String::from_utf8_lossy(&output);
+    assert!(output_str.contains("Mismatch in Match operation at CIGAR op 0, position 4: query C vs target T"),
         "Expected mismatch was not reported in the output");
 
     Ok(())
@@ -142,17 +145,22 @@ fn test_mixed_match_mismatch_errors() -> Result<()> {
 
     let mut fasta_reader = MultiFastaReader::new(query_fasta.path(), target_fasta.path())?;
 
-    let result = validate_record(&paf_record, &mut fasta_reader, "report");
+    // Capture stdout
+    let mut output = Vec::new();
+    {
+        let mut stdout = stdout();
+        let result = validate_record(&paf_record, &mut fasta_reader, "report");
+        assert!(result.is_ok(), "Expected validation to succeed in report mode");
+        output = stdout.buffer().to_vec();
+    }
 
-    assert!(result.is_ok(), "Expected validation to succeed in report mode");
-
-    // Capture the output to check if the mismatches were reported
-    let output = std::io::stdout().to_string();
+    // Convert captured output to string
+    let output_str = String::from_utf8_lossy(&output);
     assert!(
-        output.contains("Mismatch in Match operation at CIGAR op 0, position 4: query A vs target T") &&
-        output.contains("Match in Mismatch operation at CIGAR op 1, position 5: query C vs target C"),
+        output_str.contains("Mismatch in Match operation at CIGAR op 0, position 4: query A vs target T") &&
+        output_str.contains("Match in Mismatch operation at CIGAR op 1, position 5: query C vs target C"),
         "Expected mismatches were not reported in the output: {}",
-        output
+        output_str
     );
 
     Ok(())

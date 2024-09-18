@@ -29,13 +29,15 @@ pub fn validate_record(
                 let t_slice = &target_seq[t_idx..t_idx + *len as usize];
                 for (i, (q, t)) in q_slice.chars().zip(t_slice.chars()).enumerate() {
                     if q != t {
-                        println!(
-                            "Warning: Mismatch in Match operation at CIGAR op {}, position {}: query {} vs target {}",
+                        let error_message = format!(
+                            "Mismatch in Match operation at CIGAR op {}, position {}: query {} vs target {}",
                             op_idx,
                             record.query_start + q_idx + i,
                             q,
                             t
                         );
+                        println!("Warning: {}", error_message);
+                        report_error(error_mode, &error_message, record)?;
                     }
                 }
                 q_idx += *len as usize;

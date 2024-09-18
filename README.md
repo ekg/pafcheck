@@ -73,4 +73,4 @@ Contributions to pafcheck are welcome! Please feel free to submit a Pull Request
 
 ## License
 
-This project is licensed under [INSERT LICENSE HERE].
+This project is licensed under the MIT license. Have fun.

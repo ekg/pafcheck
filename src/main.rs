@@ -58,7 +58,7 @@ fn main() {
     let error_mode = matches.value_of("error-mode").unwrap();
 
     if let Err(e) = validate_paf(query_fasta_path, target_fasta_path, paf_path, error_mode) {
-        eprintln!("Error: {}", e);
+        eprintln!("[pafcheck] Error: {}", e);
         std::process::exit(1);
     }
 }
@@ -94,11 +94,11 @@ fn validate_paf(
                     error_count += validation_error.errors.len();
                     for (error_type, error_msg) in &validation_error.errors {
                         *error_type_counts.entry(error_type.clone()).or_insert(0) += 1;
-                        println!("Error at line {}: {:?}: {}", line_number + 1, error_type, error_msg);
+                        println!("[pafcheck] Error at line {}: {:?}: {}", line_number + 1, error_type, error_msg);
                     }
                 } else {
                     error_count += 1;
-                    println!("Error at line {}: {}", line_number + 1, e);
+                    println!("[pafcheck] Error at line {}: {}", line_number + 1, e);
                 }
             }
         }

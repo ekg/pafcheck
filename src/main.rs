@@ -1,7 +1,8 @@
 use anyhow::{Context, Result};
 use clap::{App, Arg};
+use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufRead, BufReader, BufWriter};
+use std::io::{BufRead, BufReader, Write};
 
 use pafcheck::fasta_reader::MultiFastaReader;
 use pafcheck::paf_parser::PafRecord;
@@ -76,8 +77,7 @@ fn validate_paf(
     let reader = BufReader::new(paf_file);
 
     let mut error_count = 0;
-    let mut error_type_counts: std::collections::HashMap<ErrorType, usize> =
-        std::collections::HashMap::new();
+    let mut error_type_counts: HashMap<ErrorType, usize> = HashMap::new();
 
     for (line_number, line) in reader.lines().enumerate() {
         let line = line.context("Failed to read PAF line")?;
@@ -86,38 +86,33 @@ fn validate_paf(
             line_number + 1
         ))?;
 
-        let mut output = BufWriter::new(std::io::stdout());
+        let mut output = Vec::new();
         match validate_record(&record, &mut fasta_reader, error_mode, &mut output) {
             Ok(_) => {}
             Err(e) => {
-                error_count += 1;
                 if let Some(validation_error) = e.downcast_ref::<ValidationError>() {
-                    for (error_type, _) in &validation_error.errors {
+                    error_count += validation_error.errors.len();
+                    for (error_type, error_msg) in &validation_error.errors {
                         *error_type_counts.entry(error_type.clone()).or_insert(0) += 1;
+                        println!("Error at line {}: {:?}: {}", line_number + 1, error_type, error_msg);
                     }
-                    eprintln!("Error at line {}: {}", line_number + 1, validation_error);
                 } else {
-                    eprintln!("Error at line {}: {}", line_number + 1, e);
-                }
-
-                if error_mode == "report" {
-                    continue;
-                } else {
-                    anyhow::bail!("Validation failed at line {}", line_number + 1);
+                    error_count += 1;
+                    println!("Error at line {}: {}", line_number + 1, e);
                 }
             }
         }
     }
 
     if error_count > 0 {
-        println!("PAF validation completed with errors:");
+        println!("[pafcheck] PAF validation completed with errors:");
         for (error_type, count) in error_type_counts.iter() {
-            println!("  - {:?}: {} errors", error_type, count);
+            println!("[pafcheck]   - {:?}: {} errors", error_type, count);
         }
-        println!("Total errors: {}", error_count);
+        println!("[pafcheck] Total errors: {}", error_count);
         anyhow::bail!("PAF validation failed with {} errors", error_count);
     } else {
-        println!("PAF validation completed successfully. No errors found.");
+        println!("[pafcheck] PAF validation completed successfully. No errors found.");
         Ok(())
     }
 }

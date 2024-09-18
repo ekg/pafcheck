@@ -31,8 +31,8 @@ pub fn validate_record<W: Write>(
     record: &PafRecord,
     fasta_reader: &mut MultiFastaReader,
     error_mode: &str,
-    output: &mut BufWriter<W>,
-) -> Result<()> {
+    output: &mut W,
+) -> Result<(), ValidationError> {
     let query_seq = fasta_reader
         .fetch_query_sequence(&record.query_name, record.query_start, record.query_end)
         .context(format!(
@@ -126,14 +126,7 @@ pub fn validate_record<W: Write>(
     }
 
     if !errors.is_empty() {
-        for (error_type, error) in &errors {
-            writeln!(output, "{:?}: {}", error_type, error)?;
-        }
-        if error_mode == "report" {
-            Ok(())
-        } else {
-            Err(ValidationError { errors }.into())
-        }
+        Err(ValidationError { errors })
     } else {
         Ok(())
     }

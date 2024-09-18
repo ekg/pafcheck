@@ -88,11 +88,15 @@ fn validate_paf(query_fasta: &str, target_fasta: &str, paf_path: &str, error_mod
                     for (error_type, _) in &validation_error.errors {
                         *error_type_counts.entry(error_type.clone()).or_insert(0) += 1;
                     }
+                    eprintln!("Error at line {}: {}", line_number + 1, validation_error);
+                } else {
+                    eprintln!("Error at line {}: {}", line_number + 1, e);
                 }
-                eprintln!("Error at line {}: {}", line_number + 1, e);
 
                 if error_mode == "report" {
-                    anyhow::bail!("Validation failed with error: {}", e);
+                    continue;
+                } else {
+                    anyhow::bail!("Validation failed at line {}", line_number + 1);
                 }
             }
         }

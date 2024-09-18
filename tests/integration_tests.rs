@@ -78,8 +78,12 @@ fn test_false_match_detection() -> Result<()> {
     let target_fasta_content = [("target1", "ATCGATTGATCG")];
     let paf_content = ["query1\t12\t0\t12\t+\ttarget1\t12\t0\t12\t12\t12\t60\tcg:Z:12="];
 
-    run_validation(&query_fasta_content, &target_fasta_content, &paf_content, "omit")?;
-    println!("Test completed. Check console output for mismatch warnings.");
+    let result = run_validation(&query_fasta_content, &target_fasta_content, &paf_content, "omit");
+    assert!(result.is_err(), "Expected an error due to false match, but got none");
+    if let Err(e) = result {
+        assert!(e.to_string().contains("Mismatch in Match operation"), "Unexpected error: {}", e);
+    }
+    println!("Test completed successfully. Error detected as expected.");
     Ok(())
 }
 
@@ -89,8 +93,12 @@ fn test_false_mismatch_detection() -> Result<()> {
     let target_fasta_content = [("target1", "ATCGATCGATCG")];
     let paf_content = ["query1\t12\t0\t12\t+\ttarget1\t12\t0\t12\t11\t12\t55\tcg:Z:5=1X6="];
 
-    run_validation(&query_fasta_content, &target_fasta_content, &paf_content, "report")?;
-    println!("Test completed without errors. Check console output for match in mismatch warning.");
+    let result = run_validation(&query_fasta_content, &target_fasta_content, &paf_content, "report");
+    assert!(result.is_err(), "Expected an error due to false mismatch, but got none");
+    if let Err(e) = result {
+        assert!(e.to_string().contains("Match in Mismatch operation"), "Unexpected error: {}", e);
+    }
+    println!("Test completed successfully. Error detected as expected.");
     Ok(())
 }
 

@@ -130,8 +130,6 @@ pub fn validate_record(
     } else {
         Ok(())
     }
-
-    Ok(())
 }
 
 fn reverse_complement(seq: &str) -> String {

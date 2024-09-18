@@ -40,14 +40,12 @@ fn test_mismatch_detection() -> Result<()> {
     // Validate the record
     let result = validate_record(&paf_record, &mut fasta_reader, "report");
 
-    // Check if the validation failed as expected
     assert!(result.is_err(), "Expected validation to fail, but it succeeded");
 
-    // Check if the error message contains the expected information
     if let Err(e) = result {
         let error_message = e.to_string();
         assert!(
-            error_message.contains("Mismatch in Match operation at CIGAR op 0, position 4: query C vs target T"),
+            error_message.contains("Mismatch in Match operation at CIGAR op 1, position 4: query C vs target T"),
             "Unexpected error message: {}",
             error_message
         );

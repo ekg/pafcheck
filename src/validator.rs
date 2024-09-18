@@ -30,7 +30,11 @@ impl std::fmt::Display for ValidationError {
         for (error_type, error_info) in &self.errors {
             writeln!(f, "  - {:?}: {}", error_type, error_info.first_message)?;
             if error_info.count > 1 {
-                writeln!(f, "  - {:?}: Total occurrences: {}", error_type, error_info.count)?;
+                writeln!(
+                    f,
+                    "  - {:?}: Total occurrences: {}",
+                    error_type, error_info.count
+                )?;
             }
         }
         Ok(())
@@ -100,7 +104,8 @@ pub fn validate_record<W: Write>(
                             op_idx, q as char, record.query_start + q_idx + i, t as char, record.target_start + t_idx + i
                         );
 
-                        errors.entry(error_type)
+                        errors
+                            .entry(error_type)
                             .and_modify(|e| e.count += 1)
                             .or_insert(ErrorInfo {
                                 first_message: error_message,
@@ -127,7 +132,8 @@ pub fn validate_record<W: Write>(
             q_idx,
             query_seq.len()
         );
-        errors.entry(error_type)
+        errors
+            .entry(error_type)
             .and_modify(|e| e.count += 1)
             .or_insert(ErrorInfo {
                 first_message: error_message,
@@ -141,7 +147,8 @@ pub fn validate_record<W: Write>(
             t_idx,
             target_seq.len()
         );
-        errors.entry(error_type)
+        errors
+            .entry(error_type)
             .and_modify(|e| e.count += 1)
             .or_insert(ErrorInfo {
                 first_message: error_message,
@@ -154,7 +161,11 @@ pub fn validate_record<W: Write>(
             for (error_type, error_info) in &errors {
                 writeln!(output, "{:?}: {}", error_type, error_info.first_message)?;
                 if error_info.count > 1 {
-                    writeln!(output, "{:?}: Total occurrences: {}", error_type, error_info.count)?;
+                    writeln!(
+                        output,
+                        "{:?}: Total occurrences: {}",
+                        error_type, error_info.count
+                    )?;
                 }
             }
             Ok(())
@@ -219,10 +230,15 @@ mod tests {
         if let Err(e) = result {
             if let Some(validation_error) = e.downcast_ref::<ValidationError>() {
                 assert!(
-                    validation_error.errors.iter().any(|(error_type, error_info)| {
-                        *error_type == ErrorType::CigarMismatch
-                            && error_info.first_message.contains("CIGAR mismatch at operation 1")
-                    }),
+                    validation_error
+                        .errors
+                        .iter()
+                        .any(|(error_type, error_info)| {
+                            *error_type == ErrorType::CigarMismatch
+                                && error_info
+                                    .first_message
+                                    .contains("CIGAR mismatch at operation 1")
+                        }),
                     "Expected CIGAR mismatch error at operation 1, but got: {:?}",
                     validation_error.errors
                 );
@@ -265,10 +281,15 @@ mod tests {
         if let Err(e) = result {
             if let Some(validation_error) = e.downcast_ref::<ValidationError>() {
                 assert!(
-                    validation_error.errors.iter().any(|(error_type, error_info)| {
-                        *error_type == ErrorType::Mismatch
-                            && error_info.first_message.contains("CIGAR mismatch at operation 0")
-                    }),
+                    validation_error
+                        .errors
+                        .iter()
+                        .any(|(error_type, error_info)| {
+                            *error_type == ErrorType::Mismatch
+                                && error_info
+                                    .first_message
+                                    .contains("CIGAR mismatch at operation 0")
+                        }),
                     "Expected Mismatch error at operation 0, but got: {:?}",
                     validation_error.errors
                 );

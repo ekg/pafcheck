@@ -100,11 +100,7 @@ fn validate_paf(
                         error_info.first_message
                     );
                     if count > 1 {
-                        println!(
-                            "[pafcheck] {:?}: Total occurrences: {}",
-                            error_type,
-                            count
-                        );
+                        println!("[pafcheck] {:?}: Total occurrences: {}", error_type, count);
                     }
                 }
             } else {

@@ -119,9 +119,6 @@ fn test_false_mismatch_detection() -> Result<()> {
         result
     };
     
-    println!("Validation result: {:?}", result);
-    println!("Output: {}", String::from_utf8_lossy(&output));
-
     assert!(result.is_ok(), "Expected validation to succeed in report mode");
 
     let output_str = String::from_utf8_lossy(&output);

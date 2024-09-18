@@ -11,8 +11,12 @@ impl MultiFastaReader {
     pub fn new<P: AsRef<Path>>(query_fasta: P, target_fasta: P) -> Result<Self> {
         let query_reader = faidx::Reader::from_path(&query_fasta)
             .context(format!("Failed to open query FASTA file: {:?}", query_fasta.as_ref()))?;
-        let target_reader = faidx::Reader::from_path(&target_fasta)
-            .context(format!("Failed to open target FASTA file: {:?}", target_fasta.as_ref()))?;
+        let target_reader = if query_fasta.as_ref() == target_fasta.as_ref() {
+            query_reader.clone()
+        } else {
+            faidx::Reader::from_path(&target_fasta)
+                .context(format!("Failed to open target FASTA file: {:?}", target_fasta.as_ref()))?
+        };
         Ok(MultiFastaReader {
             query_reader,
             target_reader,

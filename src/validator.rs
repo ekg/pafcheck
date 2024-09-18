@@ -56,7 +56,6 @@ pub fn validate_record<W: Write>(
     let target_seq = target_seq.to_uppercase().into_bytes();
 
     let cigar_ops = parse_cigar(&record.cigar).context("Failed to parse CIGAR string")?;
-    println!("Parsed CIGAR: {:?}", cigar_ops);
 
     let mut q_idx: usize = 0;
     let mut t_idx: usize = 0;

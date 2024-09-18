@@ -19,6 +19,10 @@ pub fn validate_record(
         record.target_end
     ).context("Failed to fetch target sequence")?;
 
+    // Debug print
+    println!("Query sequence length: {}", query_seq.len());
+    println!("Target sequence length: {}", target_seq.len());
+
     let cigar_ops = parse_cigar(&record.cigar).context("Failed to parse CIGAR string")?;
 
     let mut q_idx: usize = 0;

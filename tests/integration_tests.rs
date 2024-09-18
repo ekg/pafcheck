@@ -45,8 +45,8 @@ fn run_validation(fasta_content: &[(&str, &str)], paf_content: &[&str], error_mo
 #[test]
 fn test_perfect_match() -> Result<()> {
     let fasta_content: [(&str, &str); 2] = [
-        ("query1", &"A".repeat(100)),
-        ("target1", &"A".repeat(100)),
+        ("query1", &"A".repeat(1000)),
+        ("target1", &"A".repeat(1000)),
     ];
     let paf_content = ["query1\t1000\t100\t200\t+\ttarget1\t1000\t150\t250\t100\t100\t255\tcg:Z:100="];
     
@@ -58,8 +58,8 @@ fn test_perfect_match() -> Result<()> {
 #[test]
 fn test_false_mismatch_detection() -> Result<()> {
     let fasta_content: [(&str, &str); 2] = [
-        ("query1", &"C".repeat(100)),
-        ("target1", &"C".repeat(100)),
+        ("query1", &"C".repeat(1000)),
+        ("target1", &"C".repeat(1000)),
     ];
     let paf_content = ["query1\t1000\t100\t200\t+\ttarget1\t1000\t150\t250\t100\t100\t255\tcg:Z:50=1X49="];
     

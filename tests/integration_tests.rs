@@ -23,23 +23,20 @@ fn create_temp_paf(entries: &[&str]) -> Result<NamedTempFile> {
     Ok(temp_file)
 }
 
-fn run_validation(fasta_content: &[(&str, &str)], paf_content: &[&str], error_mode: &str) -> Result<Vec<String>> {
+fn run_validation(fasta_content: &[(&str, &str)], paf_content: &[&str], error_mode: &str) -> Result<()> {
     let fasta_file = create_temp_fasta(fasta_content)?;
     let paf_file = create_temp_paf(paf_content)?;
 
     let mut fasta_reader = FastaReader::new(fasta_file.path())?;
     let paf_reader = BufReader::new(File::open(paf_file.path())?);
 
-    let mut errors = Vec::new();
     for line in paf_reader.lines() {
         let line = line?;
         let record = PafRecord::from_line(&line)?;
-        if let Err(e) = validate_record(&record, &mut fasta_reader, error_mode) {
-            errors.push(format!("{}", e));
-        }
+        validate_record(&record, &mut fasta_reader, error_mode)?;
     }
 
-    Ok(errors)
+    Ok(())
 }
 
 #[test]
@@ -63,9 +60,10 @@ fn test_false_mismatch_detection() -> Result<()> {
     ];
     let paf_content = ["query1\t1000\t100\t200\t+\ttarget1\t1000\t150\t250\t100\t100\t255\tcg:Z:50=1X49="];
     
-    let errors = run_validation(&fasta_content, &paf_content, "report")?;
-    assert_eq!(errors.len(), 1, "Expected one error, but got: {:?}", errors);
-    assert!(errors[0].contains("Mismatch in Match operation"), "Unexpected error message: {}", errors[0]);
+    let result = run_validation(&fasta_content, &paf_content, "report");
+    assert!(result.is_err(), "Expected an error, but got: {:?}", result);
+    let error = result.unwrap_err();
+    assert!(error.to_string().contains("Match in Mismatch operation"), "Unexpected error message: {}", error);
     Ok(())
 }
 

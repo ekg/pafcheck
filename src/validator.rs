@@ -40,7 +40,7 @@ pub fn validate_record(
                             record.query_start + q_idx, q_slice, t_slice
                         ),
                         record,
-                    );
+                    )?;
                 }
                 q_idx += len as usize;
                 t_idx += len as usize;
@@ -56,7 +56,7 @@ pub fn validate_record(
                             record.query_start + q_idx, q_slice, t_slice
                         ),
                         record,
-                    );
+                    )?;
                 }
                 q_idx += len as usize;
                 t_idx += len as usize;
@@ -89,8 +89,10 @@ pub fn validate_record(
     Ok(())
 }
 
-fn report_error(error_mode: &str, message: &str, record: &PafRecord) {
+fn report_error(error_mode: &str, message: &str, record: &PafRecord) -> Result<()> {
     if error_mode == "report" {
         println!("[PAF_CHECK] {}: {:?}", message, record);
+        anyhow::bail!("{}", message);
     }
+    Ok(())
 }

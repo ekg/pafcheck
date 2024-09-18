@@ -41,7 +41,7 @@ fn test_mismatch_detection() -> Result<()> {
     let mut output = Vec::new();
     {
         let mut writer = BufWriter::new(&mut output);
-        let result = validate_record(&paf_record, &mut fasta_reader, "report", &mut writer);
+        let result = validate_record(&paf_record, &mut fasta_reader, "omit", &mut writer);
         assert!(
             result.is_err(),
             "Expected validation to fail due to mismatch"
@@ -53,7 +53,7 @@ fn test_mismatch_detection() -> Result<()> {
     let output_str = String::from_utf8_lossy(&output);
     assert!(
         output_str.is_empty(),
-        "Expected no errors, but got: {}",
+        "Expected no output in 'omit' mode, but got: {}",
         output_str
     );
 

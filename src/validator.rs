@@ -22,6 +22,8 @@ pub fn validate_record(
 
     let mut q_idx: usize = 0;
     let mut t_idx: usize = 0;
+    let mut errors = Vec::new();
+
     for (op_idx, op) in cigar_ops.iter().enumerate() {
         match op {
             CigarOp::Match(len) => {
@@ -29,14 +31,14 @@ pub fn validate_record(
                 let t_slice = &target_seq[t_idx..t_idx + *len as usize];
                 for (i, (q, t)) in q_slice.chars().zip(t_slice.chars()).enumerate() {
                     if q != t {
-                        let warning_message = format!(
+                        let error_message = format!(
                             "Mismatch in Match operation at CIGAR op {}, position {}: query {} vs target {}",
                             op_idx,
                             record.query_start + q_idx + i,
                             q,
                             t
                         );
-                        println!("Warning: {}", warning_message);
+                        errors.push(error_message);
                     }
                 }
                 q_idx += *len as usize;
@@ -47,21 +49,14 @@ pub fn validate_record(
                 let t_slice = &target_seq[t_idx..t_idx + *len as usize];
                 for (i, (q, t)) in q_slice.chars().zip(t_slice.chars()).enumerate() {
                     if q == t {
-                        println!(
-                            "Warning: Match in Mismatch operation at CIGAR op {}, position {}: query {} vs target {}",
+                        let error_message = format!(
+                            "Match in Mismatch operation at CIGAR op {}, position {}: query {} vs target {}",
                             op_idx,
                             record.query_start + q_idx + i,
                             q,
                             t
                         );
-                    } else {
-                        println!(
-                            "Mismatch confirmed at CIGAR op {}, position {}: query {} vs target {}",
-                            op_idx,
-                            record.query_start + q_idx + i,
-                            q,
-                            t
-                        );
+                        errors.push(error_message);
                     }
                 }
                 q_idx += *len as usize;
@@ -78,26 +73,25 @@ pub fn validate_record(
 
     // Verify endpoints
     if q_idx != (record.query_end - record.query_start) {
-        report_error(
-            error_mode,
-            &format!(
-                "Query sequence length mismatch after CIGAR operations: expected {}, got {}",
-                record.query_end - record.query_start,
-                q_idx
-            ),
-            record,
-        )?;
+        errors.push(format!(
+            "Query sequence length mismatch after CIGAR operations: expected {}, got {}",
+            record.query_end - record.query_start,
+            q_idx
+        ));
     }
     if t_idx != (record.target_end - record.target_start) {
-        report_error(
-            error_mode,
-            &format!(
-                "Target sequence length mismatch after CIGAR operations: expected {}, got {}",
-                record.target_end - record.target_start,
-                t_idx
-            ),
-            record,
-        )?;
+        errors.push(format!(
+            "Target sequence length mismatch after CIGAR operations: expected {}, got {}",
+            record.target_end - record.target_start,
+            t_idx
+        ));
+    }
+
+    if !errors.is_empty() {
+        for error in &errors {
+            println!("Error: {}", error);
+        }
+        report_error(error_mode, &errors.join("\n"), record)?;
     }
 
     Ok(())

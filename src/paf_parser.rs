@@ -3,14 +3,14 @@ use anyhow::{Result, Context};
 #[derive(Debug)]
 pub struct PafRecord {
     pub query_name: String,
-    pub query_length: u64,
-    pub query_start: u64,
-    pub query_end: u64,
+    pub query_length: usize,
+    pub query_start: usize,
+    pub query_end: usize,
     pub strand: char,
     pub target_name: String,
-    pub target_length: u64,
-    pub target_start: u64,
-    pub target_end: u64,
+    pub target_length: usize,
+    pub target_start: usize,
+    pub target_end: usize,
     pub cigar: String,
 }
 

@@ -8,10 +8,16 @@ pub fn validate_record(
     fasta_reader: &mut FastaReader,
     error_mode: &str,
 ) -> Result<()> {
-    let query_seq = fasta_reader.fetch_sequence(&record.query_name, record.query_start, record.query_end)
-        .context("Failed to fetch query sequence")?;
-    let target_seq = fasta_reader.fetch_sequence(&record.target_name, record.target_start, record.target_end)
-        .context("Failed to fetch target sequence")?;
+    let query_seq = fasta_reader.fetch_sequence(
+        &record.query_name,
+        record.query_start.try_into().unwrap(),
+        record.query_end.try_into().unwrap()
+    ).context("Failed to fetch query sequence")?;
+    let target_seq = fasta_reader.fetch_sequence(
+        &record.target_name,
+        record.target_start.try_into().unwrap(),
+        record.target_end.try_into().unwrap()
+    ).context("Failed to fetch target sequence")?;
 
     let cigar_ops = parse_cigar(&record.cigar).context("Failed to parse CIGAR string")?;
 

@@ -44,7 +44,7 @@ fn run_validation(fasta_content: &[(&str, &str)], paf_content: &[&str], error_mo
 
 #[test]
 fn test_perfect_match() -> Result<()> {
-    let fasta_content = [
+    let fasta_content: [(&str, &str); 2] = [
         ("query1", &"A".repeat(100)),
         ("target1", &"A".repeat(100)),
     ];
@@ -57,7 +57,7 @@ fn test_perfect_match() -> Result<()> {
 
 #[test]
 fn test_false_mismatch_detection() -> Result<()> {
-    let fasta_content = [
+    let fasta_content: [(&str, &str); 2] = [
         ("query1", &"C".repeat(100)),
         ("target1", &"C".repeat(100)),
     ];

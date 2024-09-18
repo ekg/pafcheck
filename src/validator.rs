@@ -70,10 +70,13 @@ pub fn validate_record(
                 for i in 0..len {
                     let q = q_slice[i];
                     let t = t_slice[i];
-                    if (q != t && matches!(op, CigarOp::Match(_))) || (q == t && matches!(op, CigarOp::Mismatch(_))) {
+                    let is_match = q == t;
+                    let expected_match = matches!(op, CigarOp::Match(_));
+                    
+                    if is_match != expected_match {
                         let error_message = format!(
                             "{} at CIGAR op {}, position {}: query {} vs target {}",
-                            if matches!(op, CigarOp::Match(_)) { "Mismatch in Match operation" } else { "Match in Mismatch operation" },
+                            if expected_match { "Mismatch in Match operation" } else { "Match in Mismatch operation" },
                             op_idx,
                             record.query_start + q_idx + i,
                             q as char,

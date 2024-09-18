@@ -121,3 +121,39 @@ fn test_false_mismatch_detection() -> Result<()> {
 
     Ok(())
 }
+#[test]
+fn test_mixed_match_mismatch_errors() -> Result<()> {
+    let query_fasta = create_temp_fasta(&[("query1", "ACGTACGT")])?;
+    let target_fasta = create_temp_fasta(&[("target1", "ACGTTCGT")])?;
+
+    let paf_record = PafRecord {
+        query_name: "query1".to_string(),
+        query_length: 8,
+        query_start: 0,
+        query_end: 8,
+        strand: '+',
+        target_name: "target1".to_string(),
+        target_length: 8,
+        target_start: 0,
+        target_end: 8,
+        cigar: "4=1X3=".to_string(),
+    };
+
+    let mut fasta_reader = MultiFastaReader::new(query_fasta.path(), target_fasta.path())?;
+
+    let result = validate_record(&paf_record, &mut fasta_reader, "report");
+
+    assert!(result.is_err(), "Expected validation to fail, but it succeeded");
+
+    if let Err(e) = result {
+        let error_message = e.to_string();
+        assert!(
+            error_message.contains("Mismatch in Match operation at CIGAR op 0, position 4: query A vs target T") &&
+            error_message.contains("Match in Mismatch operation at CIGAR op 1, position 5: query C vs target C"),
+            "Unexpected error message: {}",
+            error_message
+        );
+    }
+
+    Ok(())
+}

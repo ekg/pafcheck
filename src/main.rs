@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use clap::{App, Arg};
 use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, BufWriter};
 
 use pafcheck::fasta_reader::MultiFastaReader;
 use pafcheck::paf_parser::PafRecord;

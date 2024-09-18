@@ -76,7 +76,7 @@ fn validate_paf(
     let paf_file = File::open(paf_path).context("Failed to open PAF file")?;
     let reader = BufReader::new(paf_file);
 
-    let mut error_count = 0;
+    let mut total_error_count = 0;
     let mut error_type_counts: HashMap<ErrorType, usize> = HashMap::new();
 
     for (line_number, line) in reader.lines().enumerate() {
@@ -90,35 +90,37 @@ fn validate_paf(
         if let Err(e) = validate_record(&record, &mut fasta_reader, error_mode, &mut output) {
             if let Some(validation_error) = e.downcast_ref::<ValidationError>() {
                 for (error_type, error_info) in &validation_error.errors {
-                    *error_type_counts.entry(error_type.clone()).or_insert(0) += error_info.count;
+                    let count = error_info.count;
+                    *error_type_counts.entry(error_type.clone()).or_insert(0) += count;
+                    total_error_count += count;
                     println!(
                         "[pafcheck] Error at line {}: {:?}: {}",
                         line_number + 1,
                         error_type,
                         error_info.first_message
                     );
-                    if error_info.count > 1 {
+                    if count > 1 {
                         println!(
                             "[pafcheck] {:?}: Total occurrences: {}",
                             error_type,
-                            error_info.count
+                            count
                         );
                     }
                 }
             } else {
-                error_count += 1;
+                total_error_count += 1;
                 println!("[pafcheck] Error at line {}: {}", line_number + 1, e);
             }
         }
     }
 
-    if error_count > 0 {
+    if total_error_count > 0 {
         println!("[pafcheck] PAF validation completed with errors:");
         for (error_type, count) in error_type_counts.iter() {
             println!("[pafcheck]   - {:?}: {} errors", error_type, count);
         }
-        println!("[pafcheck] Total errors: {}", error_count);
-        anyhow::bail!("PAF validation failed with {} errors", error_count);
+        println!("[pafcheck] Total errors: {}", total_error_count);
+        anyhow::bail!("PAF validation failed with {} errors", total_error_count);
     } else {
         println!("[pafcheck] PAF validation completed successfully. No errors found.");
         Ok(())

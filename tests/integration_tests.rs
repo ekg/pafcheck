@@ -67,7 +67,7 @@ fn test_perfect_match() -> Result<()> {
 fn test_mismatch_detection() -> Result<()> {
     let query_fasta_content = [("query1", "ATCGATCGATCG")];
     let target_fasta_content = [("target1", "ATCGATTGATCG")];
-    let paf_content = ["query1\t12\t0\t12\t+\ttarget1\t12\t0\t12\t11\t12\t55\tcg:Z:5=1X6="];
+    let paf_content = ["query1\t12\t0\t12\t+\ttarget1\t12\t0\t12\t11\t12\t55\tcg:Z:6=1X5="];
 
     let result = run_validation(
         &query_fasta_content,

@@ -64,10 +64,9 @@ fn test_false_mismatch_detection() -> Result<()> {
     ];
     let paf_content = ["query1\t1000\t100\t200\t+\ttarget1\t1000\t150\t250\t100\t100\t255\tcg:Z:50=1X49="];
     
-    let result = run_validation(&fasta_content, &paf_content, "report");
-    assert!(result.is_err(), "Expected an error, but got: {:?}", result);
-    let error = result.unwrap_err();
-    assert!(error.to_string().contains("Match in Mismatch operation"), "Unexpected error message: {}", error);
+    let errors = run_validation(&fasta_content, &paf_content, "report")?;
+    assert_eq!(errors.len(), 1, "Expected one error, but got: {:?}", errors);
+    assert!(errors[0].contains("Match in Mismatch operation"), "Unexpected error message: {}", errors[0]);
     Ok(())
 }
 

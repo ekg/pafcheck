@@ -2,8 +2,8 @@ use crate::cigar_parser::{parse_cigar, CigarOp};
 use crate::fasta_reader::MultiFastaReader;
 use crate::paf_parser::PafRecord;
 use anyhow::{Context, Result};
+use std::io::{BufWriter, Write};
 use thiserror::Error;
-use std::io::{Write, BufWriter};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ErrorType {
@@ -66,17 +66,19 @@ pub fn validate_record<W: Write>(
         match op {
             CigarOp::Match(len) | CigarOp::Mismatch(len) => {
                 let len = *len as usize;
-                let q_slice = query_seq.get(q_idx..q_idx + len)
+                let q_slice = query_seq
+                    .get(q_idx..q_idx + len)
                     .ok_or_else(|| anyhow::anyhow!("Query sequence index out of range"))?;
-                let t_slice = target_seq.get(t_idx..t_idx + len)
+                let t_slice = target_seq
+                    .get(t_idx..t_idx + len)
                     .ok_or_else(|| anyhow::anyhow!("Target sequence index out of range"))?;
-                
+
                 for i in 0..len {
                     let q = q_slice[i];
                     let t = t_slice[i];
                     let is_match = q == t;
                     let expected_match = matches!(op, CigarOp::Match(_));
-                    
+
                     if is_match != expected_match {
                         let error_type = if expected_match {
                             ErrorType::Mismatch
@@ -110,7 +112,7 @@ pub fn validate_record<W: Write>(
                 "Query sequence length mismatch: CIGAR implies {}, actual length {}",
                 q_idx,
                 query_seq.len()
-            )
+            ),
         ));
     }
     if t_idx != target_seq.len() {
@@ -120,7 +122,7 @@ pub fn validate_record<W: Write>(
                 "Target sequence length mismatch: CIGAR implies {}, actual length {}",
                 t_idx,
                 target_seq.len()
-            )
+            ),
         ));
     }
 
@@ -177,18 +179,23 @@ mod tests {
             cigar: cigar.to_string(),
         };
 
-        let mut fasta_reader = MultiFastaReader::from_strings(query_fasta_content, target_fasta_content).unwrap();
+        let mut fasta_reader =
+            MultiFastaReader::from_strings(query_fasta_content, target_fasta_content).unwrap();
         let mut output = BufWriter::new(Vec::new());
 
         let result = validate_record(&paf_record, &mut fasta_reader, "omit", &mut output);
 
-        assert!(result.is_err(), "Expected an error due to CIGAR mismatch, but got success");
+        assert!(
+            result.is_err(),
+            "Expected an error due to CIGAR mismatch, but got success"
+        );
 
         if let Err(e) = result {
             if let Some(validation_error) = e.downcast_ref::<ValidationError>() {
                 assert!(
                     validation_error.errors.iter().any(|(error_type, msg)| {
-                        *error_type == ErrorType::CigarMismatch && msg.contains("CIGAR mismatch at operation 1")
+                        *error_type == ErrorType::CigarMismatch
+                            && msg.contains("CIGAR mismatch at operation 1")
                     }),
                     "Expected CIGAR mismatch error at operation 1, but got: {:?}",
                     validation_error.errors
@@ -218,18 +225,23 @@ mod tests {
             cigar: cigar.to_string(),
         };
 
-        let mut fasta_reader = MultiFastaReader::from_strings(query_fasta_content, target_fasta_content).unwrap();
+        let mut fasta_reader =
+            MultiFastaReader::from_strings(query_fasta_content, target_fasta_content).unwrap();
         let mut output = BufWriter::new(Vec::new());
 
         let result = validate_record(&paf_record, &mut fasta_reader, "omit", &mut output);
 
-        assert!(result.is_err(), "Expected an error due to sequence mismatch, but got success");
+        assert!(
+            result.is_err(),
+            "Expected an error due to sequence mismatch, but got success"
+        );
 
         if let Err(e) = result {
             if let Some(validation_error) = e.downcast_ref::<ValidationError>() {
                 assert!(
                     validation_error.errors.iter().any(|(error_type, msg)| {
-                        *error_type == ErrorType::Mismatch && msg.contains("CIGAR mismatch at operation 0")
+                        *error_type == ErrorType::Mismatch
+                            && msg.contains("CIGAR mismatch at operation 0")
                     }),
                     "Expected Mismatch error at operation 0, but got: {:?}",
                     validation_error.errors

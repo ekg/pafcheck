@@ -3,7 +3,7 @@ use pafcheck::fasta_reader::MultiFastaReader;
 use pafcheck::paf_parser::PafRecord;
 use pafcheck::validator::validate_record;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Write, BufWriter};
+use std::io::{BufRead, BufReader, BufWriter, Write};
 use tempfile::NamedTempFile;
 
 fn create_temp_fasta(sequences: &[(&str, &str)]) -> Result<NamedTempFile> {
@@ -33,7 +33,8 @@ fn run_validation(
     let target_fasta_file = create_temp_fasta(target_fasta_content)?;
     let paf_file = create_temp_paf(paf_content)?;
 
-    let mut fasta_reader = MultiFastaReader::new(query_fasta_file.path(), target_fasta_file.path())?;
+    let mut fasta_reader =
+        MultiFastaReader::new(query_fasta_file.path(), target_fasta_file.path())?;
     let paf_reader = BufReader::new(File::open(paf_file.path())?);
 
     for line in paf_reader.lines() {
@@ -52,7 +53,12 @@ fn test_perfect_match() -> Result<()> {
     let target_fasta_content = [("target1", "ATCGATCGATCG")];
     let paf_content = ["query1\t12\t0\t12\t+\ttarget1\t12\t0\t12\t12\t12\t60\tcg:Z:12="];
 
-    run_validation(&query_fasta_content, &target_fasta_content, &paf_content, "report")?;
+    run_validation(
+        &query_fasta_content,
+        &target_fasta_content,
+        &paf_content,
+        "report",
+    )?;
     println!("Test completed successfully. No errors expected.");
     Ok(())
 }
@@ -63,8 +69,16 @@ fn test_mismatch_detection() -> Result<()> {
     let target_fasta_content = [("target1", "ATCGATTGATCG")];
     let paf_content = ["query1\t12\t0\t12\t+\ttarget1\t12\t0\t12\t11\t12\t55\tcg:Z:5=1X6="];
 
-    let result = run_validation(&query_fasta_content, &target_fasta_content, &paf_content, "report");
-    assert!(result.is_ok(), "Expected successful validation, but got an error");
+    let result = run_validation(
+        &query_fasta_content,
+        &target_fasta_content,
+        &paf_content,
+        "report",
+    );
+    assert!(
+        result.is_ok(),
+        "Expected successful validation, but got an error"
+    );
     println!("Test completed successfully. Mismatch detected and reported as expected.");
     Ok(())
 }
@@ -75,12 +89,20 @@ fn test_false_match_detection() -> Result<()> {
     let target_fasta_content = [("target1", "ATCGATTGATCG")];
     let paf_content = ["query1\t12\t0\t12\t+\ttarget1\t12\t0\t12\t12\t12\t60\tcg:Z:12="];
 
-    let result = run_validation(&query_fasta_content, &target_fasta_content, &paf_content, "omit");
+    let result = run_validation(
+        &query_fasta_content,
+        &target_fasta_content,
+        &paf_content,
+        "omit",
+    );
     assert!(result.is_err(), "Expected an error due to false match");
     if let Err(e) = result {
         let error_message = e.to_string();
-        assert!(error_message.contains("CIGAR mismatch at operation 0"),
-                "Unexpected error message: {}", error_message);
+        assert!(
+            error_message.contains("CIGAR mismatch at operation 0"),
+            "Unexpected error message: {}",
+            error_message
+        );
     }
     println!("Test completed successfully. Error detected as expected.");
     Ok(())
@@ -92,12 +114,20 @@ fn test_false_mismatch_detection() -> Result<()> {
     let target_fasta_content = [("target1", "ATCGATCGATCG")];
     let paf_content = ["query1\t12\t0\t12\t+\ttarget1\t12\t0\t12\t11\t12\t55\tcg:Z:5=1X6="];
 
-    let result = run_validation(&query_fasta_content, &target_fasta_content, &paf_content, "omit");
+    let result = run_validation(
+        &query_fasta_content,
+        &target_fasta_content,
+        &paf_content,
+        "omit",
+    );
     assert!(result.is_err(), "Expected an error due to false mismatch");
     if let Err(e) = result {
         let error_message = e.to_string();
-        assert!(error_message.contains("CIGAR mismatch at operation 1"),
-                "Unexpected error message: {}", error_message);
+        assert!(
+            error_message.contains("CIGAR mismatch at operation 1"),
+            "Unexpected error message: {}",
+            error_message
+        );
     }
     println!("Test completed successfully. Error detected as expected.");
     Ok(())
@@ -109,7 +139,12 @@ fn test_insertion() -> Result<()> {
     let target_fasta_content = [("target1", "ATCGATCGATCG")];
     let paf_content = ["query1\t13\t0\t13\t+\ttarget1\t12\t0\t12\t12\t13\t60\tcg:Z:6=1I6="];
 
-    run_validation(&query_fasta_content, &target_fasta_content, &paf_content, "report")?;
+    run_validation(
+        &query_fasta_content,
+        &target_fasta_content,
+        &paf_content,
+        "report",
+    )?;
     println!("Test completed successfully. No errors expected.");
     Ok(())
 }
@@ -120,7 +155,12 @@ fn test_deletion() -> Result<()> {
     let target_fasta_content = [("target1", "ATCGATTACGATCG")];
     let paf_content = ["query1\t12\t0\t12\t+\ttarget1\t14\t0\t14\t12\t14\t60\tcg:Z:6=2D6="];
 
-    let result = run_validation(&query_fasta_content, &target_fasta_content, &paf_content, "report");
+    let result = run_validation(
+        &query_fasta_content,
+        &target_fasta_content,
+        &paf_content,
+        "report",
+    );
     assert!(result.is_ok(), "Expected no errors, but got: {:?}", result);
     Ok(())
 }

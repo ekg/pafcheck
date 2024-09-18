@@ -5,7 +5,7 @@ use std::io::{BufRead, BufReader, BufWriter};
 
 use pafcheck::fasta_reader::MultiFastaReader;
 use pafcheck::paf_parser::PafRecord;
-use pafcheck::validator::{validate_record, ValidationError, ErrorType};
+use pafcheck::validator::{validate_record, ErrorType, ValidationError};
 
 fn main() {
     let matches = App::new("PAF Validator")
@@ -62,7 +62,12 @@ fn main() {
     }
 }
 
-fn validate_paf(query_fasta: &str, target_fasta: &str, paf_path: &str, error_mode: &str) -> Result<()> {
+fn validate_paf(
+    query_fasta: &str,
+    target_fasta: &str,
+    paf_path: &str,
+    error_mode: &str,
+) -> Result<()> {
     let mut fasta_reader = MultiFastaReader::new(query_fasta, target_fasta)
         .context("Failed to create FASTA readers")?;
     println!("Using query FASTA: {}", query_fasta);
@@ -71,7 +76,8 @@ fn validate_paf(query_fasta: &str, target_fasta: &str, paf_path: &str, error_mod
     let reader = BufReader::new(paf_file);
 
     let mut error_count = 0;
-    let mut error_type_counts: std::collections::HashMap<ErrorType, usize> = std::collections::HashMap::new();
+    let mut error_type_counts: std::collections::HashMap<ErrorType, usize> =
+        std::collections::HashMap::new();
 
     for (line_number, line) in reader.lines().enumerate() {
         let line = line.context("Failed to read PAF line")?;
@@ -79,10 +85,10 @@ fn validate_paf(query_fasta: &str, target_fasta: &str, paf_path: &str, error_mod
             "Failed to parse PAF record at line {}",
             line_number + 1
         ))?;
-        
+
         let mut output = BufWriter::new(std::io::stdout());
         match validate_record(&record, &mut fasta_reader, error_mode, &mut output) {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(e) => {
                 error_count += 1;
                 if let Some(validation_error) = e.downcast_ref::<ValidationError>() {

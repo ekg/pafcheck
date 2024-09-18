@@ -1,4 +1,4 @@
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 
 #[derive(Debug)]
 pub enum CigarOp {
@@ -16,7 +16,9 @@ pub fn parse_cigar(cigar: &str) -> Result<Vec<CigarOp>> {
         if c.is_ascii_digit() {
             num.push(c);
         } else {
-            let count = num.parse::<u64>().context("Failed to parse CIGAR operation count")?;
+            let count = num
+                .parse::<u64>()
+                .context("Failed to parse CIGAR operation count")?;
             match c {
                 '=' => ops.push(CigarOp::Match(count)),
                 'X' => ops.push(CigarOp::Mismatch(count)),

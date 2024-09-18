@@ -2,7 +2,7 @@ use anyhow::Result;
 use pafcheck::fasta_reader::MultiFastaReader;
 use pafcheck::paf_parser::PafRecord;
 use pafcheck::validator::validate_record;
-use std::io::{Write, BufWriter};
+use std::io::{BufWriter, Write};
 use tempfile::NamedTempFile;
 
 fn create_temp_fasta(sequences: &[(&str, &str)]) -> Result<NamedTempFile> {
@@ -42,7 +42,10 @@ fn test_mismatch_detection() -> Result<()> {
     {
         let mut writer = BufWriter::new(&mut output);
         let result = validate_record(&paf_record, &mut fasta_reader, "report", &mut writer);
-        assert!(result.is_ok(), "Expected validation to succeed in report mode");
+        assert!(
+            result.is_ok(),
+            "Expected validation to succeed in report mode"
+        );
         writer.flush()?;
     }
 
@@ -85,7 +88,10 @@ fn test_false_match_detection() -> Result<()> {
         result
     };
 
-    assert!(result.is_ok(), "Expected validation to succeed in report mode");
+    assert!(
+        result.is_ok(),
+        "Expected validation to succeed in report mode"
+    );
 
     let output_str = String::from_utf8_lossy(&output);
     assert!(
@@ -124,8 +130,11 @@ fn test_false_mismatch_detection() -> Result<()> {
         writer.flush()?;
         result
     };
-    
-    assert!(result.is_ok(), "Expected validation to succeed in report mode");
+
+    assert!(
+        result.is_ok(),
+        "Expected validation to succeed in report mode"
+    );
 
     let output_str = String::from_utf8_lossy(&output);
     assert!(
@@ -162,7 +171,10 @@ fn test_mixed_match_mismatch_errors() -> Result<()> {
     {
         let mut writer = BufWriter::new(&mut output);
         let result = validate_record(&paf_record, &mut fasta_reader, "report", &mut writer);
-        assert!(result.is_ok(), "Expected validation to succeed in report mode");
+        assert!(
+            result.is_ok(),
+            "Expected validation to succeed in report mode"
+        );
         writer.flush()?;
     }
 

@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use rust_htslib::faidx;
-use std::path::Path;
 use std::collections::HashMap;
+use std::path::Path;
 
 pub struct MultiFastaReader {
     query_reader: faidx::Reader,
@@ -10,10 +10,14 @@ pub struct MultiFastaReader {
 
 impl MultiFastaReader {
     pub fn new<P: AsRef<Path>>(query_fasta: P, target_fasta: P) -> Result<Self> {
-        let query_reader = faidx::Reader::from_path(&query_fasta)
-            .context(format!("Failed to open query FASTA file: {:?}", query_fasta.as_ref()))?;
-        let target_reader = faidx::Reader::from_path(&target_fasta)
-            .context(format!("Failed to open target FASTA file: {:?}", target_fasta.as_ref()))?;
+        let query_reader = faidx::Reader::from_path(&query_fasta).context(format!(
+            "Failed to open query FASTA file: {:?}",
+            query_fasta.as_ref()
+        ))?;
+        let target_reader = faidx::Reader::from_path(&target_fasta).context(format!(
+            "Failed to open target FASTA file: {:?}",
+            target_fasta.as_ref()
+        ))?;
         Ok(MultiFastaReader {
             query_reader,
             target_reader,
@@ -38,12 +42,23 @@ impl MultiFastaReader {
             .context("Failed to fetch query sequence")
     }
 
-    pub fn fetch_target_sequence(&self, seq_name: &str, start: usize, end: usize) -> Result<String> {
+    pub fn fetch_target_sequence(
+        &self,
+        seq_name: &str,
+        start: usize,
+        end: usize,
+    ) -> Result<String> {
         self.fetch_sequence(&self.target_reader, seq_name, start, end)
             .context("Failed to fetch target sequence")
     }
 
-    fn fetch_sequence(&self, reader: &faidx::Reader, seq_name: &str, start: usize, end: usize) -> Result<String> {
+    fn fetch_sequence(
+        &self,
+        reader: &faidx::Reader,
+        seq_name: &str,
+        start: usize,
+        end: usize,
+    ) -> Result<String> {
         reader
             .fetch_seq_string(seq_name, start, end - 1) // Adjust for 0-based indexing
             .context(format!("Failed to fetch sequence: {}", seq_name))
@@ -85,6 +100,8 @@ fn create_in_memory_reader(sequences: &HashMap<String, String>) -> Result<faidx:
     }
 
     let temp_file = tempfile::NamedTempFile::new().context("Failed to create temporary file")?;
-    std::fs::write(temp_file.path(), fasta_content).context("Failed to write temporary FASTA file")?;
-    faidx::Reader::from_path(temp_file.path()).context("Failed to create FASTA reader from temporary file")
+    std::fs::write(temp_file.path(), fasta_content)
+        .context("Failed to write temporary FASTA file")?;
+    faidx::Reader::from_path(temp_file.path())
+        .context("Failed to create FASTA reader from temporary file")
 }

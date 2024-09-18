@@ -1,4 +1,4 @@
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 
 #[derive(Debug)]
 pub struct PafRecord {

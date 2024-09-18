@@ -70,7 +70,8 @@ fn validate_paf(query_fasta: &str, target_fasta: &str, paf_path: &str, error_mod
     let paf_file = File::open(paf_path).context("Failed to open PAF file")?;
     let reader = BufReader::new(paf_file);
 
-    let mut errors_found = false;
+    let mut error_count = 0;
+    let mut error_types = std::collections::HashMap::new();
 
     for (line_number, line) in reader.lines().enumerate() {
         let line = line.context("Failed to read PAF line")?;
@@ -80,16 +81,22 @@ fn validate_paf(query_fasta: &str, target_fasta: &str, paf_path: &str, error_mod
         ))?;
         
         if let Err(e) = validate_record(&record, &mut fasta_reader, error_mode) {
-            errors_found = true;
+            error_count += 1;
+            let error_type = e.to_string().split(':').next().unwrap_or("Unknown").to_string();
+            *error_types.entry(error_type).or_insert(0) += 1;
             eprintln!("Error at line {}: {}", line_number + 1, e);
         }
     }
 
-    if errors_found {
-        println!("PAF validation failed.");
-        anyhow::bail!("PAF invalid");
+    if error_count > 0 {
+        println!("PAF validation completed with errors:");
+        for (error_type, count) in error_types.iter() {
+            println!("  - {}: {} errors", error_type, count);
+        }
+        println!("Total errors: {}", error_count);
+        std::process::exit(1);
     } else {
-        println!("PAF validation completed successfully.");
+        println!("PAF validation completed successfully. No errors found.");
         Ok(())
     }
 }

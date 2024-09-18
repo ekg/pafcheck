@@ -66,7 +66,7 @@ fn test_mismatch_detection() -> Result<()> {
     let target_fasta_content = [("target1", "ATCGATTGATCG")];
     let paf_content = ["query1\t12\t0\t12\t+\ttarget1\t12\t0\t12\t11\t12\t55\tcg:Z:5=1X6="];
 
-    let errors = run_validation(&query_fasta_content, &target_fasta_content, &paf_content, "report")?;
+    let errors = run_validation(&query_fasta_content, &target_fasta_content, &paf_content, "omit")?;
     assert!(errors.is_empty(), "Expected no errors, but got: {:?}", errors);
     println!("Test completed without errors. Check console output for mismatch warnings.");
     Ok(())

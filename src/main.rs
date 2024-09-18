@@ -3,7 +3,7 @@ use clap::{App, Arg};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
-use pafcheck::fasta_reader::FastaReader;
+use pafcheck::fasta_reader::MultiFastaReader;
 use pafcheck::paf_parser::PafRecord;
 use pafcheck::validator::validate_record;
 
@@ -11,15 +11,24 @@ fn main() -> Result<()> {
     let matches = App::new("PAF Validator")
         .version("1.0")
         .author("Your Name")
-        .about("Validates PAF CIGAR strings against a FASTA file")
+        .about("Validates PAF CIGAR strings against FASTA files")
         .arg(
-            Arg::with_name("fasta")
-                .short('f')
-                .long("fasta")
-                .value_name("FASTA")
-                .help("Path to the bgzip-compressed and tabix-indexed FASTA file")
+            Arg::with_name("query_fasta")
+                .short('q')
+                .long("query-fasta")
+                .value_name("QUERY_FASTA")
+                .help("Path to the bgzip-compressed and tabix-indexed query FASTA file")
                 .takes_value(true)
                 .required(true),
+        )
+        .arg(
+            Arg::with_name("target_fasta")
+                .short('t')
+                .long("target-fasta")
+                .value_name("TARGET_FASTA")
+                .help("Path to the bgzip-compressed and tabix-indexed target FASTA file")
+                .takes_value(true)
+                .required(false),
         )
         .arg(
             Arg::with_name("paf")
@@ -42,17 +51,20 @@ fn main() -> Result<()> {
         )
         .get_matches();
 
-    let fasta_path = matches.value_of("fasta").unwrap();
+    let query_fasta_path = matches.value_of("query_fasta").unwrap();
+    let target_fasta_path = matches.value_of("target_fasta").unwrap_or(query_fasta_path);
     let paf_path = matches.value_of("paf").unwrap();
     let error_mode = matches.value_of("error-mode").unwrap();
 
-    validate_paf(fasta_path, paf_path, error_mode).context("Failed to validate PAF file")?;
+    validate_paf(query_fasta_path, target_fasta_path, paf_path, error_mode)
+        .context("Failed to validate PAF file")?;
 
     Ok(())
 }
 
-fn validate_paf(fasta_path: &str, paf_path: &str, error_mode: &str) -> Result<()> {
-    let mut fasta_reader = FastaReader::new(fasta_path).context("Failed to create FASTA reader")?;
+fn validate_paf(query_fasta: &str, target_fasta: &str, paf_path: &str, error_mode: &str) -> Result<()> {
+    let mut fasta_reader = MultiFastaReader::new(query_fasta, target_fasta)
+        .context("Failed to create FASTA readers")?;
     let paf_file = File::open(paf_path).context("Failed to open PAF file")?;
     let reader = BufReader::new(paf_file);
 

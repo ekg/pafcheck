@@ -1,18 +1,18 @@
 use crate::cigar_parser::{parse_cigar, CigarOp};
-use crate::fasta_reader::FastaReader;
+use crate::fasta_reader::MultiFastaReader;
 use crate::paf_parser::PafRecord;
 use anyhow::{Context, Result};
 
 pub fn validate_record(
     record: &PafRecord,
-    fasta_reader: &mut FastaReader,
+    fasta_reader: &mut MultiFastaReader,
     error_mode: &str,
 ) -> Result<()> {
     let query_seq = fasta_reader
-        .fetch_sequence(&record.query_name, record.query_start, record.query_end)
+        .fetch_query_sequence(&record.query_name, record.query_start, record.query_end)
         .context("Failed to fetch query sequence")?;
     let target_seq = fasta_reader
-        .fetch_sequence(&record.target_name, record.target_start, record.target_end)
+        .fetch_target_sequence(&record.target_name, record.target_start, record.target_end)
         .context("Failed to fetch target sequence")?;
 
     // Debug print

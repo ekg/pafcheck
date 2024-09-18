@@ -58,7 +58,8 @@ fn main() -> Result<()> {
 }
 
 fn validate_paf(fasta_path: &str, paf_path: &str, error_mode: &str) -> Result<()> {
-    let mut fasta_reader = FastaReader::new(fasta_path)?;
+    let mut fasta_reader = FastaReader::new(fasta_path)
+        .context("Failed to create FASTA reader")?;
     let paf_file = File::open(paf_path)
         .context("Failed to open PAF file")?;
     let reader = BufReader::new(paf_file);

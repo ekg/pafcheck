@@ -13,7 +13,7 @@ pub fn parse_cigar(cigar: &str) -> Result<Vec<CigarOp>> {
     let mut num = String::new();
 
     for c in cigar.chars() {
-        if c.is_digit(10) {
+        if c.is_ascii_digit() {
             num.push(c);
         } else {
             let count = num.parse::<u64>().context("Failed to parse CIGAR operation count")?;

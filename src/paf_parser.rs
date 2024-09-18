@@ -23,8 +23,8 @@ impl PafRecord {
 
         let mut cigar = String::new();
         for field in &fields[12..] {
-            if field.starts_with("cg:Z:") {
-                cigar = field[5..].to_string();
+            if let Some(stripped) = field.strip_prefix("cg:Z:") {
+                cigar = stripped.to_string();
                 break;
             }
         }

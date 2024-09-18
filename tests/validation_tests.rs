@@ -2,7 +2,6 @@ use anyhow::Result;
 use pafcheck::fasta_reader::MultiFastaReader;
 use pafcheck::paf_parser::PafRecord;
 use pafcheck::validator::validate_record;
-use std::fs::File;
 use std::io::Write;
 use tempfile::NamedTempFile;
 
@@ -45,12 +44,14 @@ fn test_mismatch_detection() -> Result<()> {
     assert!(result.is_err(), "Expected validation to fail, but it succeeded");
 
     // Check if the error message contains the expected information
-    let error_message = result.unwrap_err().to_string();
-    assert!(
-        error_message.contains("Mismatch in Match operation at CIGAR op 0, position 4: query C vs target T"),
-        "Unexpected error message: {}",
-        error_message
-    );
+    if let Err(e) = result {
+        let error_message = e.to_string();
+        assert!(
+            error_message.contains("Mismatch in Match operation at CIGAR op 0, position 4: query C vs target T"),
+            "Unexpected error message: {}",
+            error_message
+        );
+    }
 
     Ok(())
 }
@@ -79,12 +80,14 @@ fn test_false_match_detection() -> Result<()> {
 
     assert!(result.is_err(), "Expected validation to fail, but it succeeded");
 
-    let error_message = result.unwrap_err().to_string();
-    assert!(
-        error_message.contains("Mismatch in Match operation at CIGAR op 0, position 4: query C vs target T"),
-        "Unexpected error message: {}",
-        error_message
-    );
+    if let Err(e) = result {
+        let error_message = e.to_string();
+        assert!(
+            error_message.contains("Mismatch in Match operation at CIGAR op 0, position 4: query C vs target T"),
+            "Unexpected error message: {}",
+            error_message
+        );
+    }
 
     Ok(())
 }
@@ -113,12 +116,14 @@ fn test_false_mismatch_detection() -> Result<()> {
 
     assert!(result.is_err(), "Expected validation to fail, but it succeeded");
 
-    let error_message = result.unwrap_err().to_string();
-    assert!(
-        error_message.contains("Match in Mismatch operation at CIGAR op 1, position 4: query T vs target T"),
-        "Unexpected error message: {}",
-        error_message
-    );
+    if let Err(e) = result {
+        let error_message = e.to_string();
+        assert!(
+            error_message.contains("Match in Mismatch operation at CIGAR op 1, position 4: query T vs target T"),
+            "Unexpected error message: {}",
+            error_message
+        );
+    }
 
     Ok(())
 }

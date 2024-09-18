@@ -111,19 +111,24 @@ fn test_false_mismatch_detection() -> Result<()> {
 
     let mut fasta_reader = MultiFastaReader::new(query_fasta.path(), target_fasta.path())?;
 
-    let mut output = BufWriter::new(Vec::new());
-    let result = validate_record(&paf_record, &mut fasta_reader, "report", &mut output);
+    let mut output = Vec::new();
+    {
+        let mut writer = BufWriter::new(&mut output);
+        let result = validate_record(&paf_record, &mut fasta_reader, "report", &mut writer);
+        writer.flush()?;
+        
+        println!("Validation result: {:?}", result);
+        println!("Output: {}", String::from_utf8_lossy(&output));
 
-    assert!(result.is_err(), "Expected validation to fail, but it succeeded");
-
-    if let Err(e) = result {
-        let error_message = e.to_string();
-        assert!(
-            error_message.contains("Match in Mismatch operation at CIGAR op 1, position 4: query T vs target T"),
-            "Unexpected error message: {}",
-            error_message
-        );
+        assert!(result.is_ok(), "Expected validation to succeed in report mode");
     }
+
+    let output_str = String::from_utf8_lossy(&output);
+    assert!(
+        output_str.contains("Match in Mismatch operation at CIGAR op 1, position 4: query T vs target T"),
+        "Expected mismatch was not reported in the output: {}",
+        output_str
+    );
 
     Ok(())
 }

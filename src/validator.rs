@@ -57,6 +57,14 @@ pub fn validate_record(
                             q,
                             t
                         );
+                    } else {
+                        println!(
+                            "Mismatch confirmed at CIGAR op {}, position {}: query {} vs target {}",
+                            op_idx,
+                            record.query_start + q_idx + i,
+                            q,
+                            t
+                        );
                     }
                 }
                 q_idx += *len as usize;

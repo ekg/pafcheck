@@ -10,24 +10,24 @@ pub fn validate_record(
 ) -> Result<()> {
     let query_seq = fasta_reader.fetch_sequence(
         &record.query_name,
-        record.query_start.try_into().unwrap(),
-        record.query_end.try_into().unwrap()
+        record.query_start,
+        record.query_end
     ).context("Failed to fetch query sequence")?;
     let target_seq = fasta_reader.fetch_sequence(
         &record.target_name,
-        record.target_start.try_into().unwrap(),
-        record.target_end.try_into().unwrap()
+        record.target_start,
+        record.target_end
     ).context("Failed to fetch target sequence")?;
 
     let cigar_ops = parse_cigar(&record.cigar).context("Failed to parse CIGAR string")?;
 
-    let mut q_idx = 0;
-    let mut t_idx = 0;
+    let mut q_idx: usize = 0;
+    let mut t_idx: usize = 0;
     for op in cigar_ops {
         match op {
             CigarOp::Match(len) => {
-                let q_slice = &query_seq[q_idx as usize..(q_idx + len) as usize];
-                let t_slice = &target_seq[t_idx as usize..(t_idx + len) as usize];
+                let q_slice = &query_seq[q_idx..q_idx + len as usize];
+                let t_slice = &target_seq[t_idx..t_idx + len as usize];
                 if q_slice != t_slice {
                     report_error(
                         error_mode,
@@ -38,12 +38,12 @@ pub fn validate_record(
                         record,
                     );
                 }
-                q_idx += len;
-                t_idx += len;
+                q_idx += len as usize;
+                t_idx += len as usize;
             }
             CigarOp::Mismatch(len) => {
-                let q_slice = &query_seq[q_idx as usize..(q_idx + len) as usize];
-                let t_slice = &target_seq[t_idx as usize..(t_idx + len) as usize];
+                let q_slice = &query_seq[q_idx..q_idx + len as usize];
+                let t_slice = &target_seq[t_idx..t_idx + len as usize];
                 if q_slice == t_slice {
                     report_error(
                         error_mode,
@@ -54,14 +54,14 @@ pub fn validate_record(
                         record,
                     );
                 }
-                q_idx += len;
-                t_idx += len;
+                q_idx += len as usize;
+                t_idx += len as usize;
             }
             CigarOp::Insertion(len) => {
-                q_idx += len;
+                q_idx += len as usize;
             }
             CigarOp::Deletion(len) => {
-                t_idx += len;
+                t_idx += len as usize;
             }
         }
     }

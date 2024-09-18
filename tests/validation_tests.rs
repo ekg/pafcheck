@@ -2,7 +2,7 @@ use anyhow::Result;
 use pafcheck::fasta_reader::MultiFastaReader;
 use pafcheck::paf_parser::PafRecord;
 use pafcheck::validator::validate_record;
-use std::io::{Write, stdout};
+use std::io::Write;
 use tempfile::NamedTempFile;
 
 fn create_temp_fasta(sequences: &[(&str, &str)]) -> Result<NamedTempFile> {
@@ -37,13 +37,11 @@ fn test_mismatch_detection() -> Result<()> {
     // Create MultiFastaReader
     let mut fasta_reader = MultiFastaReader::new(query_fasta.path(), target_fasta.path())?;
 
-    // Capture stdout
+    // Capture output
     let mut output = Vec::new();
     {
-        let mut stdout = stdout();
-        let result = validate_record(&paf_record, &mut fasta_reader, "report");
+        let result = validate_record(&paf_record, &mut fasta_reader, "report", &mut output);
         assert!(result.is_ok(), "Expected validation to succeed, but it failed");
-        output = stdout.buffer().to_vec();
     }
 
     // Convert captured output to string
@@ -145,13 +143,11 @@ fn test_mixed_match_mismatch_errors() -> Result<()> {
 
     let mut fasta_reader = MultiFastaReader::new(query_fasta.path(), target_fasta.path())?;
 
-    // Capture stdout
+    // Capture output
     let mut output = Vec::new();
     {
-        let mut stdout = stdout();
-        let result = validate_record(&paf_record, &mut fasta_reader, "report");
+        let result = validate_record(&paf_record, &mut fasta_reader, "report", &mut output);
         assert!(result.is_ok(), "Expected validation to succeed in report mode");
-        output = stdout.buffer().to_vec();
     }
 
     // Convert captured output to string

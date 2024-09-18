@@ -30,6 +30,7 @@ pub fn validate_record(
     record: &PafRecord,
     fasta_reader: &mut MultiFastaReader,
     error_mode: &str,
+    output: &mut Vec<u8>,
 ) -> Result<()> {
     let query_seq = fasta_reader
         .fetch_query_sequence(&record.query_name, record.query_start, record.query_end)
@@ -121,7 +122,7 @@ pub fn validate_record(
     if !errors.is_empty() {
         if error_mode == "report" {
             for (error_type, error) in &errors {
-                println!("{:?}: {}", error_type, error);
+                writeln!(output, "{:?}: {}", error_type, error)?;
             }
             Ok(())
         } else {

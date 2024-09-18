@@ -70,18 +70,26 @@ fn validate_paf(query_fasta: &str, target_fasta: &str, paf_path: &str, error_mod
     let paf_file = File::open(paf_path).context("Failed to open PAF file")?;
     let reader = BufReader::new(paf_file);
 
+    let mut errors_found = false;
+
     for (line_number, line) in reader.lines().enumerate() {
         let line = line.context("Failed to read PAF line")?;
         let record = PafRecord::from_line(&line).context(format!(
             "Failed to parse PAF record at line {}",
             line_number + 1
         ))?;
-        validate_record(&record, &mut fasta_reader, error_mode).context(format!(
-            "Failed to validate PAF record at line {}",
-            line_number + 1
-        ))?;
+        
+        if let Err(e) = validate_record(&record, &mut fasta_reader, error_mode) {
+            errors_found = true;
+            eprintln!("Error at line {}: {}", line_number + 1, e);
+        }
     }
 
-    println!("PAF validation completed successfully.");
-    Ok(())
+    if errors_found {
+        println!("PAF validation failed.");
+        anyhow::bail!("PAF invalid");
+    } else {
+        println!("PAF validation completed successfully.");
+        Ok(())
+    }
 }

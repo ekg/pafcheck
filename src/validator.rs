@@ -2,6 +2,25 @@ use crate::cigar_parser::{parse_cigar, CigarOp};
 use crate::fasta_reader::MultiFastaReader;
 use crate::paf_parser::PafRecord;
 use anyhow::{Context, Result};
+use thiserror::Error;
+
+#[derive(Debug, Clone)]
+pub enum ErrorType {
+    Mismatch,
+    LengthMismatch,
+    // Add other error types as needed
+}
+
+#[derive(Error, Debug)]
+pub struct ValidationError {
+    pub errors: Vec<(ErrorType, String)>,
+}
+
+impl std::fmt::Display for ValidationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Validation errors: {}", self.errors.iter().map(|(_, msg)| msg).collect::<Vec<_>>().join("; "))
+    }
+}
 
 pub fn validate_record(
     record: &PafRecord,
@@ -48,7 +67,7 @@ pub fn validate_record(
 
     let mut q_idx: usize = 0;
     let mut t_idx: usize = 0;
-    let mut errors = Vec::new();
+    let mut errors: Vec<(ErrorType, String)> = Vec::new();
 
     for (op_idx, op) in cigar_ops.iter().enumerate() {
         match op {
@@ -67,7 +86,7 @@ pub fn validate_record(
                             q as char,
                             t as char
                         );
-                        errors.push(error_message);
+                        errors.push((ErrorType::Mismatch, error_message));
                     }
                 }
                 q_idx += len;
@@ -88,7 +107,7 @@ pub fn validate_record(
                             q as char,
                             t as char
                         );
-                        errors.push(error_message);
+                        errors.push((ErrorType::Mismatch, error_message));
                     }
                 }
                 q_idx += len;
@@ -105,35 +124,38 @@ pub fn validate_record(
 
     // Verify endpoints
     if q_idx != (record.query_end - record.query_start) as usize {
-        errors.push(format!(
-            "Query sequence length mismatch after CIGAR operations: expected {}, got {}",
-            record.query_end - record.query_start,
-            q_idx
+        errors.push((
+            ErrorType::LengthMismatch,
+            format!(
+                "Query sequence length mismatch after CIGAR operations: expected {}, got {}",
+                record.query_end - record.query_start,
+                q_idx
+            )
         ));
     }
     if t_idx != (record.target_end - record.target_start) as usize {
-        errors.push(format!(
-            "Target sequence length mismatch after CIGAR operations: expected {}, got {}",
-            record.target_end - record.target_start,
-            t_idx
+        errors.push((
+            ErrorType::LengthMismatch,
+            format!(
+                "Target sequence length mismatch after CIGAR operations: expected {}, got {}",
+                record.target_end - record.target_start,
+                t_idx
+            )
         ));
     }
 
     if !errors.is_empty() {
-        for error in &errors {
+        for (_, error) in &errors {
             println!("Error: {}", error);
         }
-        report_error(error_mode, &errors.join("\n"), record)?;
+        if error_mode == "report" {
+            let messages: Vec<String> = errors.iter().map(|(_, msg)| msg.clone()).collect();
+            anyhow::bail!("{}", messages.join("\n"));
+        } else {
+            return Err(ValidationError { errors }.into());
+        }
     }
 
-    Ok(())
-}
-
-fn report_error(error_mode: &str, message: &str, record: &PafRecord) -> Result<()> {
-    println!("[PAF_CHECK] {}: {:?}", message, record);
-    if error_mode == "report" {
-        anyhow::bail!("{}", message);
-    }
     Ok(())
 }
 

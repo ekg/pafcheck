@@ -5,7 +5,7 @@ use std::io::{BufRead, BufReader};
 
 use pafcheck::fasta_reader::MultiFastaReader;
 use pafcheck::paf_parser::PafRecord;
-use pafcheck::validator::validate_record;
+use pafcheck::validator::{validate_record, ValidationError, ErrorType};
 
 fn main() {
     let matches = App::new("PAF Validator")
@@ -71,7 +71,7 @@ fn validate_paf(query_fasta: &str, target_fasta: &str, paf_path: &str, error_mod
     let reader = BufReader::new(paf_file);
 
     let mut error_count = 0;
-    let mut error_types = std::collections::HashMap::new();
+    let mut error_type_counts: std::collections::HashMap<ErrorType, usize> = std::collections::HashMap::new();
 
     for (line_number, line) in reader.lines().enumerate() {
         let line = line.context("Failed to read PAF line")?;
@@ -84,17 +84,24 @@ fn validate_paf(query_fasta: &str, target_fasta: &str, paf_path: &str, error_mod
             Ok(_) => {},
             Err(e) => {
                 error_count += 1;
-                let error_type = e.to_string().split(':').next().unwrap_or("Unknown").to_string();
-                *error_types.entry(error_type).or_insert(0) += 1;
+                if let Some(validation_error) = e.downcast_ref::<ValidationError>() {
+                    for (error_type, _) in &validation_error.errors {
+                        *error_type_counts.entry(error_type.clone()).or_insert(0) += 1;
+                    }
+                }
                 eprintln!("Error at line {}: {}", line_number + 1, e);
+
+                if error_mode == "report" {
+                    anyhow::bail!("Validation failed with error: {}", e);
+                }
             }
         }
     }
 
     if error_count > 0 {
         println!("PAF validation completed with errors:");
-        for (error_type, count) in error_types.iter() {
-            println!("  - {}: {} errors", error_type, count);
+        for (error_type, count) in error_type_counts.iter() {
+            println!("  - {:?}: {} errors", error_type, count);
         }
         println!("Total errors: {}", error_count);
         anyhow::bail!("PAF validation failed with {} errors", error_count);

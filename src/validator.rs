@@ -31,7 +31,7 @@ pub fn validate_record(
     fasta_reader: &mut MultiFastaReader,
     error_mode: &str,
 ) -> Result<()> {
-    let mut query_seq = fasta_reader
+    let query_seq = fasta_reader
         .fetch_query_sequence(&record.query_name, record.query_start, record.query_end)
         .context(format!(
             "Failed to fetch query sequence: {} ({}:{})",
@@ -44,9 +44,11 @@ pub fn validate_record(
             record.target_name, record.target_start, record.target_end
         ))?;
 
-    if record.strand == '-' {
-        query_seq = reverse_complement(&query_seq);
-    }
+    let query_seq = if record.strand == '-' {
+        reverse_complement(&query_seq)
+    } else {
+        query_seq
+    };
 
     let query_seq = query_seq.to_uppercase().into_bytes();
     let target_seq = target_seq.to_uppercase().into_bytes();
@@ -61,8 +63,10 @@ pub fn validate_record(
         match op {
             CigarOp::Match(len) | CigarOp::Mismatch(len) => {
                 let len = *len as usize;
-                let q_slice = &query_seq[q_idx..q_idx + len];
-                let t_slice = &target_seq[t_idx..t_idx + len];
+                let q_slice = query_seq.get(q_idx..q_idx + len)
+                    .ok_or_else(|| anyhow::anyhow!("Query sequence index out of range"))?;
+                let t_slice = target_seq.get(t_idx..t_idx + len)
+                    .ok_or_else(|| anyhow::anyhow!("Target sequence index out of range"))?;
                 for i in 0..len {
                     let q = q_slice[i];
                     let t = t_slice[i];

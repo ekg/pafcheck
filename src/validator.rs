@@ -30,8 +30,8 @@ impl std::fmt::Display for ValidationError {
 pub fn validate_record<W: Write>(
     record: &PafRecord,
     fasta_reader: &mut MultiFastaReader,
-    error_mode: &str,
-    output: &mut W,
+    _error_mode: &str,
+    _output: &mut W,
 ) -> Result<()> {
     let query_seq = fasta_reader
         .fetch_query_sequence(&record.query_name, record.query_start, record.query_end)

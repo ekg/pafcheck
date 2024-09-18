@@ -7,7 +7,7 @@ use pafcheck::fasta_reader::MultiFastaReader;
 use pafcheck::paf_parser::PafRecord;
 use pafcheck::validator::validate_record;
 
-fn main() -> Result<()> {
+fn main() {
     let matches = App::new("PAF Validator")
         .version("1.0")
         .author("Your Name")
@@ -56,10 +56,10 @@ fn main() -> Result<()> {
     let paf_path = matches.value_of("paf").unwrap();
     let error_mode = matches.value_of("error-mode").unwrap();
 
-    validate_paf(query_fasta_path, target_fasta_path, paf_path, error_mode)
-        .context("Failed to validate PAF file")?;
-
-    Ok(())
+    if let Err(e) = validate_paf(query_fasta_path, target_fasta_path, paf_path, error_mode) {
+        eprintln!("Error: {}", e);
+        std::process::exit(1);
+    }
 }
 
 fn validate_paf(query_fasta: &str, target_fasta: &str, paf_path: &str, error_mode: &str) -> Result<()> {
@@ -80,11 +80,14 @@ fn validate_paf(query_fasta: &str, target_fasta: &str, paf_path: &str, error_mod
             line_number + 1
         ))?;
         
-        if let Err(e) = validate_record(&record, &mut fasta_reader, error_mode) {
-            error_count += 1;
-            let error_type = e.to_string().split(':').next().unwrap_or("Unknown").to_string();
-            *error_types.entry(error_type).or_insert(0) += 1;
-            eprintln!("Error at line {}: {}", line_number + 1, e);
+        match validate_record(&record, &mut fasta_reader, error_mode) {
+            Ok(_) => {},
+            Err(e) => {
+                error_count += 1;
+                let error_type = e.to_string().split(':').next().unwrap_or("Unknown").to_string();
+                *error_types.entry(error_type).or_insert(0) += 1;
+                eprintln!("Error at line {}: {}", line_number + 1, e);
+            }
         }
     }
 
@@ -94,7 +97,7 @@ fn validate_paf(query_fasta: &str, target_fasta: &str, paf_path: &str, error_mod
             println!("  - {}: {} errors", error_type, count);
         }
         println!("Total errors: {}", error_count);
-        std::process::exit(1);
+        anyhow::bail!("PAF validation failed with {} errors", error_count);
     } else {
         println!("PAF validation completed successfully. No errors found.");
         Ok(())

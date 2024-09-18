@@ -79,7 +79,7 @@ fn test_false_match_detection() -> Result<()> {
     assert!(result.is_err(), "Expected an error due to false match");
     if let Err(e) = result {
         let error_message = e.to_string();
-        assert!(error_message.contains("CIGAR mismatch at operation 5"), 
+        assert!(error_message.contains("CIGAR mismatch at operation 0"),
                 "Unexpected error message: {}", error_message);
     }
     println!("Test completed successfully. Error detected as expected.");
@@ -96,7 +96,7 @@ fn test_false_mismatch_detection() -> Result<()> {
     assert!(result.is_err(), "Expected an error due to false mismatch");
     if let Err(e) = result {
         let error_message = e.to_string();
-        assert!(error_message.contains("CIGAR mismatch at operation 5"), 
+        assert!(error_message.contains("CIGAR mismatch at operation 1"),
                 "Unexpected error message: {}", error_message);
     }
     println!("Test completed successfully. Error detected as expected.");

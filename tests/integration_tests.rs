@@ -68,7 +68,7 @@ fn test_mismatch_detection() -> Result<()> {
 
     let errors = run_validation(&query_fasta_content, &target_fasta_content, &paf_content, "report")?;
     assert!(errors.is_empty(), "Expected no errors, but got: {:?}", errors);
-    println!("Test completed without errors. Check console output for mismatch confirmation.");
+    println!("Test completed without errors. Check console output for mismatch warnings.");
     Ok(())
 }
 

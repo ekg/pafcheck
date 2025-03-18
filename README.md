@@ -67,6 +67,10 @@ samtools faidx tests/data/a.fa.gz
 samtools faidx tests/data/b.fa.gz
 ```
 
+## Development
+
+To compile pafcheck with guix or get a development shell see [guix.scm](./guix.scm).
+
 ## Contributing
 
 Contributions to pafcheck are welcome! Please feel free to submit a Pull Request.

@@ -8,8 +8,8 @@ use tempfile::NamedTempFile;
 fn create_temp_fasta(sequences: &[(&str, &str)]) -> Result<NamedTempFile> {
     let mut temp_file = NamedTempFile::new()?;
     for (name, seq) in sequences {
-        writeln!(temp_file, ">{}", name)?;
-        writeln!(temp_file, "{}", seq)?;
+        writeln!(temp_file, ">{name}")?;
+        writeln!(temp_file, "{seq}")?;
     }
     Ok(temp_file)
 }
@@ -56,8 +56,7 @@ fn test_mismatch_detection() -> Result<()> {
     let output_str = String::from_utf8_lossy(&output);
     assert!(
         output_str.is_empty(),
-        "Expected no output in 'omit' mode, but got: {}",
-        output_str
+        "Expected no output in 'omit' mode, but got: {output_str}"
     );
 
     Ok(())
@@ -102,8 +101,7 @@ fn test_false_match_detection() -> Result<()> {
     let output_str = String::from_utf8_lossy(&output);
     assert!(
         output_str.contains("Mismatch: CIGAR mismatch at operation 0: query char 'C' at pos 4 vs target char 'T' at pos 4"),
-        "Expected mismatch was not reported in the output: {}",
-        output_str
+        "Expected mismatch was not reported in the output: {output_str}"
     );
 
     Ok(())
@@ -148,8 +146,7 @@ fn test_false_mismatch_detection() -> Result<()> {
     let output_str = String::from_utf8_lossy(&output);
     assert!(
         output_str.contains("CigarMismatch: CIGAR mismatch at operation 1: query char 'T' at pos 4 vs target char 'T' at pos 4"),
-        "Expected mismatch was not reported in the output: {}",
-        output_str
+        "Expected mismatch was not reported in the output: {output_str}"
     );
 
     Ok(())
@@ -194,8 +191,7 @@ fn test_mixed_match_mismatch_errors() -> Result<()> {
     let output_str = String::from_utf8_lossy(&output);
     assert!(
         output_str.is_empty(),
-        "Expected no errors, but got: {}",
-        output_str
+        "Expected no errors, but got: {output_str}"
     );
 
     Ok(())

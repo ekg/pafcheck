@@ -9,8 +9,8 @@ use tempfile::NamedTempFile;
 fn create_temp_fasta(sequences: &[(&str, &str)]) -> Result<NamedTempFile> {
     let mut temp_file = NamedTempFile::new()?;
     for (name, seq) in sequences {
-        writeln!(temp_file, ">{}", name)?;
-        writeln!(temp_file, "{}", seq)?;
+        writeln!(temp_file, ">{name}")?;
+        writeln!(temp_file, "{seq}")?;
     }
     Ok(temp_file)
 }
@@ -18,7 +18,7 @@ fn create_temp_fasta(sequences: &[(&str, &str)]) -> Result<NamedTempFile> {
 fn create_temp_paf(entries: &[&str]) -> Result<NamedTempFile> {
     let mut temp_file = NamedTempFile::new()?;
     for entry in entries {
-        writeln!(temp_file, "{}", entry)?;
+        writeln!(temp_file, "{entry}")?;
     }
     Ok(temp_file)
 }
@@ -100,8 +100,7 @@ fn test_false_match_detection() -> Result<()> {
         let error_message = e.to_string();
         assert!(
             error_message.contains("CIGAR mismatch at operation 0"),
-            "Unexpected error message: {}",
-            error_message
+            "Unexpected error message: {error_message}"
         );
     }
     println!("Test completed successfully. Error detected as expected.");
@@ -125,8 +124,7 @@ fn test_false_mismatch_detection() -> Result<()> {
         let error_message = e.to_string();
         assert!(
             error_message.contains("CIGAR mismatch at operation 1"),
-            "Unexpected error message: {}",
-            error_message
+            "Unexpected error message: {error_message}"
         );
     }
     println!("Test completed successfully. Error detected as expected.");
@@ -161,6 +159,6 @@ fn test_deletion() -> Result<()> {
         &paf_content,
         "report",
     );
-    assert!(result.is_ok(), "Expected no errors, but got: {:?}", result);
+    assert!(result.is_ok(), "Expected no errors, but got: {result:?}");
     Ok(())
 }

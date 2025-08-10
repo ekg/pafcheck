@@ -1,8 +1,11 @@
 use anyhow::{Context, Result};
 use clap::{App, Arg};
+use indicatif::{ProgressBar, ProgressStyle};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use std::sync::Arc;
+use std::thread;
 
 use pafcheck::cigar_parser::{parse_cigar, CigarOp};
 use pafcheck::fasta_reader::MultiFastaReader;
@@ -21,7 +24,7 @@ fn main() {
                 .value_name("QUERY_FASTA")
                 .help("Path to the bgzip-compressed and tabix-indexed query FASTA file")
                 .takes_value(true)
-                .required_unless_one(&["info", "coverage"]),
+                .required_unless_one(["info", "coverage"]),
         )
         .arg(
             Arg::with_name("target_fasta")
@@ -65,33 +68,74 @@ fn main() {
                 .takes_value(false)
                 .required(false),
         )
+        .arg(
+            Arg::with_name("threads")
+                .short('j')
+                .long("threads")
+                .value_name("THREADS")
+                .help("Number of threads to use for validation")
+                .takes_value(true)
+                .required(false),
+        )
         .get_matches();
 
     let query_fasta_path = matches.value_of("query_fasta");
     let target_fasta_path = matches.value_of("target_fasta");
     let paf_path = matches.value_of("paf").unwrap();
     let error_mode = matches.value_of("error-mode").unwrap();
+
     let show_info = matches.is_present("info");
     let show_coverage = matches.is_present("coverage");
 
     if show_info {
         if let Err(e) = show_paf_info(paf_path) {
-            eprintln!("[pafcheck] Error: {}", e);
+            eprintln!("[pafcheck] Error: {e}");
             std::process::exit(1);
         }
     } else if show_coverage {
         if let Err(e) = show_paf_coverage(paf_path) {
-            eprintln!("[pafcheck] Error: {}", e);
+            eprintln!("[pafcheck] Error: {e}");
             std::process::exit(1);
         }
     } else {
-        let query_fasta = query_fasta_path.unwrap();
+        let num_threads = if let Some(threads_str) = matches.value_of("threads") {
+            threads_str
+                .parse::<usize>()
+                .context("Invalid number of threads")
+                .unwrap_or_else(|e| {
+                    eprintln!("[pafcheck] Error: {e}");
+                    std::process::exit(1);
+                })
+        } else if std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(1)
+            >= 4
+        {
+            4
+        } else {
+            1
+        };
+
+        let query_fasta: &str = query_fasta_path.unwrap();
         let target_fasta = target_fasta_path.unwrap_or(query_fasta);
-        if let Err(e) = validate_paf(query_fasta, target_fasta, paf_path, error_mode) {
-            eprintln!("[pafcheck] Error: {}", e);
+
+        if let Err(e) = validate_paf(
+            query_fasta,
+            target_fasta,
+            paf_path,
+            error_mode,
+            num_threads,
+        ) {
+            eprintln!("[pafcheck] Error: {e}");
             std::process::exit(1);
         }
     }
+}
+
+struct ThreadResult {
+    error_count: usize,
+    error_type_counts: HashMap<ErrorType, usize>,
+    error_messages: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -187,7 +231,7 @@ fn print_coverage_table(pair_stats: &HashMap<(String, String), AlignmentPairStat
                  coverage_stats.query_coverage * 100.0,
                  coverage_stats.target_coverage * 100.0,
                  coverage_stats.jaccard,
-                 coverage_stats.bp_jaccard.map_or("NA".to_string(), |j| format!("{:.3}", j)),
+                 coverage_stats.bp_jaccard.map_or("NA".to_string(), |j| format!("{j:.3}")),
                  coverage_stats.identity * 100.0,
                  coverage_stats.gap_compressed_identity * 100.0,
                  coverage_stats.blast_identity * 100.0);
@@ -398,11 +442,11 @@ fn show_paf_info(paf_path: &str) -> Result<()> {
         // Track coverage
         query_coverage
             .entry(record.query_name.clone())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push((record.query_start, record.query_end));
         target_coverage
             .entry(record.target_name.clone())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push((record.target_start, record.target_end));
 
         // Track sequence lengths
@@ -422,7 +466,7 @@ fn show_paf_info(paf_path: &str) -> Result<()> {
 
     println!("PAF Statistics:");
     println!("===============");
-    println!("Total records: {}", total_records);
+    println!("Total records: {total_records}");
     println!(
         "Records with CIGAR: {} ({:.1}%)",
         records_with_cigar,
@@ -477,8 +521,8 @@ fn print_length_stats(lengths: &[usize]) {
 
     println!("  Min: {}", lengths[0]);
     println!("  Max: {}", lengths[lengths.len() - 1]);
-    println!("  Mean: {:.1}", mean);
-    println!("  Median: {:.1}", median);
+    println!("  Mean: {mean:.1}");
+    println!("  Median: {median:.1}");
 }
 
 fn print_identity_stats(identities: &[f64]) {
@@ -497,8 +541,8 @@ fn print_identity_stats(identities: &[f64]) {
 
     println!("  Min: {:.2}%", identities[0]);
     println!("  Max: {:.2}%", identities[identities.len() - 1]);
-    println!("  Mean: {:.2}%", mean);
-    println!("  Median: {:.2}%", median);
+    println!("  Mean: {mean:.2}%");
+    println!("  Median: {median:.2}%");
 }
 
 #[derive(Debug)]
@@ -636,7 +680,7 @@ fn print_coverage_stats(stats: &CoverageStats) {
         stats.coverage_percentages[stats.coverage_percentages.len() - 1]
     );
     println!("  Mean coverage: {:.2}%", stats.mean);
-    println!("  Median coverage: {:.2}%", median);
+    println!("  Median coverage: {median:.2}%");
     println!("  Std deviation: {:.2}%", stats.variance.sqrt());
     println!("  Skewness: {:.3}", stats.skewness);
     println!("  Kurtosis: {:.3}", stats.kurtosis);
@@ -647,20 +691,129 @@ fn validate_paf(
     target_fasta: &str,
     paf_path: &str,
     error_mode: &str,
+    num_threads: usize,
 ) -> Result<()> {
-    let mut fasta_reader = MultiFastaReader::new(query_fasta, target_fasta)
-        .context("Failed to create FASTA readers")?;
+    // Read all PAF lines into memory with line numbers
     let paf_file = File::open(paf_path).context("Failed to open PAF file")?;
     let reader = BufReader::new(paf_file);
 
+    println!("[pafcheck] Reading PAF file...");
+    let lines: Result<Vec<_>> = reader
+        .lines()
+        .enumerate()
+        .map(|(i, line)| line.context("Failed to read PAF line").map(|l| (i + 1, l)))
+        .collect();
+    let lines = lines?;
+
+    if lines.is_empty() {
+        println!("[pafcheck] PAF file is empty. No validation needed.");
+        return Ok(());
+    }
+
+    println!(
+        "[pafcheck] Processing {} PAF records using {} threads",
+        lines.len(),
+        num_threads
+    );
+
+    // Create progress bar
+    let progress_bar = Arc::new(ProgressBar::new(lines.len() as u64));
+    progress_bar.set_style(
+        ProgressStyle::default_bar()
+            .template("[pafcheck] {spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} records ({percent}%) {msg}")
+            .unwrap()
+            .progress_chars("#>-")
+    );
+
+    // Determine chunk size
+    let chunk_size = lines.len().div_ceil(num_threads);
+
+    // Process chunks in parallel using scoped threads
+    let results: Result<Vec<ThreadResult>> = thread::scope(|s| {
+        let handles: Vec<_> = lines
+            .chunks(chunk_size)
+            .map(|chunk| {
+                let chunk = chunk.to_vec();
+                let query_fasta = query_fasta.to_string();
+                let target_fasta = target_fasta.to_string();
+                let error_mode = error_mode.to_string();
+                let progress = Arc::clone(&progress_bar);
+
+                s.spawn(move || -> Result<ThreadResult> {
+                    process_chunk(&query_fasta, &target_fasta, &error_mode, chunk, progress)
+                })
+            })
+            .collect();
+
+        handles.into_iter().map(|h| h.join().unwrap()).collect()
+    });
+
+    progress_bar.finish_with_message("Validation complete");
+
+    let results = results?;
+
+    // Aggregate results
     let mut total_error_count = 0;
     let mut error_type_counts: HashMap<ErrorType, usize> = HashMap::new();
+    let mut all_error_messages = Vec::new();
 
-    for (line_number, line) in reader.lines().enumerate() {
-        let line = line.context("Failed to read PAF line")?;
-        let record = PafRecord::from_line(&line).context(format!(
-            "Failed to parse PAF record at line {}",
-            line_number + 1
+    for result in results {
+        total_error_count += result.error_count;
+        for (error_type, count) in result.error_type_counts {
+            *error_type_counts.entry(error_type).or_insert(0) += count;
+        }
+        all_error_messages.extend(result.error_messages);
+    }
+
+    // Sort error messages by line number (extract line number from message)
+    all_error_messages.sort_by(|a, b| {
+        let line_a = extract_line_number(a).unwrap_or(0);
+        let line_b = extract_line_number(b).unwrap_or(0);
+        line_a.cmp(&line_b)
+    });
+
+    // Print all error messages in order
+    for message in all_error_messages {
+        println!("{message}");
+    }
+
+    // Print summary
+    if total_error_count > 0 {
+        println!("[pafcheck] PAF validation completed with errors:");
+        for (error_type, count) in error_type_counts.iter() {
+            println!("[pafcheck]   - {error_type:?}: {count} errors");
+        }
+        println!("[pafcheck] Total errors: {total_error_count}");
+        anyhow::bail!("PAF validation failed with {} errors", total_error_count);
+    } else {
+        println!("[pafcheck] PAF validation completed successfully. No errors found.");
+        Ok(())
+    }
+}
+
+fn process_chunk(
+    query_fasta: &str,
+    target_fasta: &str,
+    error_mode: &str,
+    chunk: Vec<(usize, String)>,
+    progress: Arc<ProgressBar>,
+) -> Result<ThreadResult> {
+    let mut fasta_reader = MultiFastaReader::new(query_fasta, target_fasta)
+        .context("Failed to create FASTA readers")?;
+
+    let mut error_count = 0;
+    let mut error_type_counts: HashMap<ErrorType, usize> = HashMap::new();
+    let mut error_messages = Vec::new();
+
+    for (i, (line_number, line)) in chunk.iter().enumerate() {
+        // Update progress
+        if i % 100 == 0 {
+            progress.inc(100.min(chunk.len() - i) as u64);
+            progress.set_message(format!("Processing record {line_number}"));
+        }
+
+        let record = PafRecord::from_line(line).context(format!(
+            "Failed to parse PAF record at line {line_number}"
         ))?;
 
         let mut output = Vec::new();
@@ -669,33 +822,44 @@ fn validate_paf(
                 for (error_type, error_info) in &validation_error.errors {
                     let count = error_info.count;
                     *error_type_counts.entry(error_type.clone()).or_insert(0) += count;
-                    total_error_count += count;
-                    println!(
+                    error_count += count;
+                    error_messages.push(format!(
                         "[pafcheck] Error at line {}: {:?}: {}",
-                        line_number + 1,
-                        error_type,
-                        error_info.first_message
-                    );
+                        line_number, error_type, error_info.first_message
+                    ));
                     if count > 1 {
-                        println!("[pafcheck] {:?}: Total occurrences: {}", error_type, count);
+                        error_messages.push(format!(
+                            "[pafcheck] {error_type:?}: Total occurrences: {count}"
+                        ));
                     }
                 }
             } else {
-                total_error_count += 1;
-                println!("[pafcheck] Error at line {}: {}", line_number + 1, e);
+                error_count += 1;
+                error_messages.push(format!("[pafcheck] Error at line {line_number}: {e}"));
             }
         }
     }
 
-    if total_error_count > 0 {
-        println!("[pafcheck] PAF validation completed with errors:");
-        for (error_type, count) in error_type_counts.iter() {
-            println!("[pafcheck]   - {:?}: {} errors", error_type, count);
-        }
-        println!("[pafcheck] Total errors: {}", total_error_count);
-        anyhow::bail!("PAF validation failed with {} errors", total_error_count);
-    } else {
-        println!("[pafcheck] PAF validation completed successfully. No errors found.");
-        Ok(())
+    // Update progress for remaining items
+    let remaining = chunk.len() % 100;
+    if remaining > 0 {
+        progress.inc(remaining as u64);
     }
+
+    Ok(ThreadResult {
+        error_count,
+        error_type_counts,
+        error_messages,
+    })
+}
+
+fn extract_line_number(message: &str) -> Option<usize> {
+    // Extract line number from error message format "[pafcheck] Error at line X:"
+    if let Some(start) = message.find("line ") {
+        let start = start + 5; // Skip "line "
+        if let Some(end) = message[start..].find(':') {
+            return message[start..start + end].parse().ok();
+        }
+    }
+    None
 }

@@ -59,9 +59,20 @@ impl MultiFastaReader {
         start: usize,
         end: usize,
     ) -> Result<String> {
-        reader
-            .fetch_seq_string(seq_name, start, end - 1) // Adjust for 0-based indexing
-            .context(format!("Failed to fetch sequence: {}", seq_name))
+        // Apply the fix for the rust_htslib memory leak bug
+        // https://github.com/rust-bio/rust-htslib/issues/401#issuecomment-1704290171
+        let seq_vec = reader
+            .fetch_seq(seq_name, start, end - 1) // Adjust for 0-based indexing
+            .context(format!("Failed to fetch sequence: {seq_name}"))
+            .map(|seq| {
+                let seq_vec = seq.to_vec();
+                // Free the memory allocated by htslib to prevent memory leak
+                unsafe { libc::free(seq.as_ptr() as *mut std::ffi::c_void) };
+                seq_vec
+            })?;
+
+        // Convert to String
+        String::from_utf8(seq_vec).context("Failed to convert sequence to UTF-8 string")
     }
 }
 

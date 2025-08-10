@@ -246,7 +246,7 @@ mod tests {
                     validation_error.errors
                 );
             } else {
-                panic!("Expected ValidationError, but got: {}", e);
+                panic!("Expected ValidationError, but got: {e}");
             }
         }
     }
@@ -300,7 +300,7 @@ mod tests {
                     validation_error.errors
                 );
             } else {
-                panic!("Expected ValidationError, but got: {}", e);
+                panic!("Expected ValidationError, but got: {e}");
             }
         }
     }

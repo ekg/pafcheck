@@ -5,9 +5,13 @@ edition = "2021"
 
 [dependencies]
 clap = "3.2"
-rust-htslib = "0.40"
-anyhow = "1.0"
-tempfile = "3.2"
-thiserror = "1.0"
+anyhow = "1.0.98"
+tempfile = "3.20.0"
+thiserror = "1.0.69"
+
+rust-htslib = { version = "0.46.0", default-features = false } # Don't update it, see https://github.com/rust-bio/rust-htslib/issues/434
+libc = "0.2.174"
+
+indicatif = "0.17.11"
 
 [dev-dependencies]

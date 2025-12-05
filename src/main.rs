@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use clap::{App, Arg};
 use indicatif::{ProgressBar, ProgressStyle};
+use log::error;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
@@ -8,8 +9,8 @@ use std::sync::Arc;
 use std::thread;
 
 use pafcheck::cigar_parser::{parse_cigar, CigarOp};
-use pafcheck::fasta_reader::MultiFastaReader;
 use pafcheck::paf_parser::PafRecord;
+use pafcheck::sequence::{collect_sequence_paths, SequenceIndex};
 use pafcheck::validator::{validate_record, ErrorType, ValidationError};
 
 fn main() {
@@ -18,20 +19,19 @@ fn main() {
         .author("Your Name")
         .about("Validates PAF CIGAR strings against FASTA files")
         .arg(
-            Arg::with_name("query_fasta")
-                .short('q')
-                .long("query-fasta")
-                .value_name("QUERY_FASTA")
-                .help("Path to the bgzip-compressed and tabix-indexed query FASTA file")
+            Arg::with_name("sequence_files")
+                .long("sequence-files")
+                .value_name("FILE")
+                .help("Sequence files (FASTA or AGC format, repeatable)")
                 .takes_value(true)
-                .required_unless_one(["info", "coverage"]),
+                .multiple_values(true)
+                .required(false),
         )
         .arg(
-            Arg::with_name("target_fasta")
-                .short('t')
-                .long("target-fasta")
-                .value_name("TARGET_FASTA")
-                .help("Path to the bgzip-compressed and tabix-indexed target FASTA file")
+            Arg::with_name("sequence_list")
+                .long("sequence-list")
+                .value_name("FILE")
+                .help("File listing sequence file paths (one per line)")
                 .takes_value(true)
                 .required(false),
         )
@@ -77,10 +77,40 @@ fn main() {
                 .takes_value(true)
                 .required(false),
         )
+        .arg(
+            Arg::with_name("verbose")
+                .short('v')
+                .long("verbose")
+                .value_name("LEVEL")
+                .help("Verbosity level (0 = error, 1 = info, 2 = debug)")
+                .takes_value(true)
+                .default_value("1")
+                .required(false),
+        )
         .get_matches();
 
-    let query_fasta_path = matches.value_of("query_fasta");
-    let target_fasta_path = matches.value_of("target_fasta");
+    // Initialize logging based on verbosity level
+    let verbose: u8 = matches
+        .value_of("verbose")
+        .unwrap()
+        .parse()
+        .unwrap_or(1);
+    let log_level = match verbose {
+        0 => log::LevelFilter::Error,
+        1 => log::LevelFilter::Info,
+        _ => log::LevelFilter::Debug,
+    };
+    env_logger::Builder::new()
+        .filter_level(log_level)
+        .format_target(false)
+        .format_timestamp(None)
+        .init();
+
+    let sequence_files: Vec<String> = matches
+        .values_of("sequence_files")
+        .map(|v| v.map(String::from).collect())
+        .unwrap_or_default();
+    let sequence_list = matches.value_of("sequence_list").map(String::from);
     let paf_path = matches.value_of("paf").unwrap();
     let error_mode = matches.value_of("error-mode").unwrap();
 
@@ -89,21 +119,35 @@ fn main() {
 
     if show_info {
         if let Err(e) = show_paf_info(paf_path) {
-            eprintln!("[pafcheck] Error: {e}");
+            error!("{e}");
             std::process::exit(1);
         }
     } else if show_coverage {
         if let Err(e) = show_paf_coverage(paf_path) {
-            eprintln!("[pafcheck] Error: {e}");
+            error!("{e}");
             std::process::exit(1);
         }
     } else {
+        // Collect and validate sequence paths
+        let sequence_paths = match collect_sequence_paths(sequence_files, sequence_list) {
+            Ok(paths) => paths,
+            Err(e) => {
+                error!("{e}");
+                std::process::exit(1);
+            }
+        };
+
+        if sequence_paths.is_empty() {
+            error!("No sequence files provided. Use --sequence-files or --sequence-list");
+            std::process::exit(1);
+        }
+
         let num_threads = if let Some(threads_str) = matches.value_of("threads") {
             threads_str
                 .parse::<usize>()
                 .context("Invalid number of threads")
                 .unwrap_or_else(|e| {
-                    eprintln!("[pafcheck] Error: {e}");
+                    error!("{e}");
                     std::process::exit(1);
                 })
         } else if std::thread::available_parallelism()
@@ -116,17 +160,23 @@ fn main() {
             1
         };
 
-        let query_fasta: &str = query_fasta_path.unwrap();
-        let target_fasta = target_fasta_path.unwrap_or(query_fasta);
+        // Build sequence index
+        log::info!("Building sequence index from {} file(s)...", sequence_paths.len());
+        let sequence_index = match SequenceIndex::build(&sequence_paths) {
+            Ok(index) => Arc::new(index),
+            Err(e) => {
+                error!("{e}");
+                std::process::exit(1);
+            }
+        };
 
         if let Err(e) = validate_paf(
-            query_fasta,
-            target_fasta,
+            sequence_index,
             paf_path,
             error_mode,
             num_threads,
         ) {
-            eprintln!("[pafcheck] Error: {e}");
+            error!("{e}");
             std::process::exit(1);
         }
     }
@@ -687,8 +737,7 @@ fn print_coverage_stats(stats: &CoverageStats) {
 }
 
 fn validate_paf(
-    query_fasta: &str,
-    target_fasta: &str,
+    sequence_index: Arc<SequenceIndex>,
     paf_path: &str,
     error_mode: &str,
     num_threads: usize,
@@ -697,7 +746,7 @@ fn validate_paf(
     let paf_file = File::open(paf_path).context("Failed to open PAF file")?;
     let reader = BufReader::new(paf_file);
 
-    println!("[pafcheck] Reading PAF file...");
+    log::info!("Reading PAF file...");
     let lines: Result<Vec<_>> = reader
         .lines()
         .enumerate()
@@ -706,12 +755,12 @@ fn validate_paf(
     let lines = lines?;
 
     if lines.is_empty() {
-        println!("[pafcheck] PAF file is empty. No validation needed.");
+        log::info!("PAF file is empty. No validation needed.");
         return Ok(());
     }
 
-    println!(
-        "[pafcheck] Processing {} PAF records using {} threads",
+    log::info!(
+        "Processing {} PAF records using {} threads",
         lines.len(),
         num_threads
     );
@@ -734,13 +783,12 @@ fn validate_paf(
             .chunks(chunk_size)
             .map(|chunk| {
                 let chunk = chunk.to_vec();
-                let query_fasta = query_fasta.to_string();
-                let target_fasta = target_fasta.to_string();
+                let sequence_index = Arc::clone(&sequence_index);
                 let error_mode = error_mode.to_string();
                 let progress = Arc::clone(&progress_bar);
 
                 s.spawn(move || -> Result<ThreadResult> {
-                    process_chunk(&query_fasta, &target_fasta, &error_mode, chunk, progress)
+                    process_chunk(&sequence_index, &error_mode, chunk, progress)
                 })
             })
             .collect();
@@ -773,34 +821,30 @@ fn validate_paf(
     });
 
     // Print all error messages in order
-    for message in all_error_messages {
-        println!("{message}");
+    for message in &all_error_messages {
+        error!("{message}");
     }
 
     // Print summary
     if total_error_count > 0 {
-        println!("[pafcheck] PAF validation completed with errors:");
+        error!("PAF validation completed with errors:");
         for (error_type, count) in error_type_counts.iter() {
-            println!("[pafcheck]   - {error_type:?}: {count} errors");
+            error!("  - {error_type:?}: {count} errors");
         }
-        println!("[pafcheck] Total errors: {total_error_count}");
+        error!("Total errors: {total_error_count}");
         anyhow::bail!("PAF validation failed with {} errors", total_error_count);
     } else {
-        println!("[pafcheck] PAF validation completed successfully. No errors found.");
+        log::info!("PAF validation completed successfully. No errors found.");
         Ok(())
     }
 }
 
 fn process_chunk(
-    query_fasta: &str,
-    target_fasta: &str,
+    sequence_index: &SequenceIndex,
     error_mode: &str,
     chunk: Vec<(usize, String)>,
     progress: Arc<ProgressBar>,
 ) -> Result<ThreadResult> {
-    let mut fasta_reader = MultiFastaReader::new(query_fasta, target_fasta)
-        .context("Failed to create FASTA readers")?;
-
     let mut error_count = 0;
     let mut error_type_counts: HashMap<ErrorType, usize> = HashMap::new();
     let mut error_messages = Vec::new();
@@ -817,25 +861,25 @@ fn process_chunk(
         ))?;
 
         let mut output = Vec::new();
-        if let Err(e) = validate_record(&record, &mut fasta_reader, error_mode, &mut output) {
+        if let Err(e) = validate_record(&record, sequence_index, error_mode, &mut output) {
             if let Some(validation_error) = e.downcast_ref::<ValidationError>() {
                 for (error_type, error_info) in &validation_error.errors {
                     let count = error_info.count;
                     *error_type_counts.entry(error_type.clone()).or_insert(0) += count;
                     error_count += count;
                     error_messages.push(format!(
-                        "[pafcheck] Error at line {}: {:?}: {}",
+                        "Error at line {}: {:?}: {}",
                         line_number, error_type, error_info.first_message
                     ));
                     if count > 1 {
                         error_messages.push(format!(
-                            "[pafcheck] {error_type:?}: Total occurrences: {count}"
+                            "{error_type:?}: Total occurrences: {count}"
                         ));
                     }
                 }
             } else {
                 error_count += 1;
-                error_messages.push(format!("[pafcheck] Error at line {line_number}: {e}"));
+                error_messages.push(format!("Error at line {line_number}: {e}"));
             }
         }
     }

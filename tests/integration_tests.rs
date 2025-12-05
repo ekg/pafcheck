@@ -1,6 +1,6 @@
 use anyhow::Result;
-use pafcheck::fasta_reader::MultiFastaReader;
 use pafcheck::paf_parser::PafRecord;
+use pafcheck::sequence::SequenceIndex;
 use pafcheck::validator::validate_record;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
@@ -29,19 +29,23 @@ fn run_validation(
     paf_content: &[&str],
     error_mode: &str,
 ) -> Result<()> {
-    let query_fasta_file = create_temp_fasta(query_fasta_content)?;
-    let target_fasta_file = create_temp_fasta(target_fasta_content)?;
+    // Combine query and target sequences into a single FASTA file
+    let mut all_sequences: Vec<(&str, &str)> = Vec::new();
+    all_sequences.extend_from_slice(query_fasta_content);
+    all_sequences.extend_from_slice(target_fasta_content);
+
+    let fasta_file = create_temp_fasta(&all_sequences)?;
     let paf_file = create_temp_paf(paf_content)?;
 
-    let mut fasta_reader =
-        MultiFastaReader::new(query_fasta_file.path(), target_fasta_file.path())?;
+    let fasta_path = fasta_file.path().to_str().unwrap().to_string();
+    let sequence_index = SequenceIndex::build(&[fasta_path]).map_err(|e| anyhow::anyhow!(e))?;
     let paf_reader = BufReader::new(File::open(paf_file.path())?);
 
     for line in paf_reader.lines() {
         let line = line?;
         let record = PafRecord::from_line(&line)?;
         let mut output = BufWriter::new(Vec::new());
-        validate_record(&record, &mut fasta_reader, error_mode, &mut output)?;
+        validate_record(&record, &sequence_index, error_mode, &mut output)?;
     }
 
     Ok(())

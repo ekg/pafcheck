@@ -1,6 +1,6 @@
 use crate::cigar_parser::{parse_cigar, CigarOp};
-use crate::fasta_reader::MultiFastaReader;
 use crate::paf_parser::PafRecord;
+use crate::sequence::SequenceIndex;
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::io::Write;
@@ -43,31 +43,31 @@ impl std::fmt::Display for ValidationError {
 
 pub fn validate_record<W: Write>(
     record: &PafRecord,
-    fasta_reader: &mut MultiFastaReader,
+    sequence_index: &SequenceIndex,
     error_mode: &str,
     output: &mut W,
 ) -> Result<()> {
-    let query_seq = fasta_reader
-        .fetch_query_sequence(&record.query_name, record.query_start, record.query_end)
+    let query_seq = sequence_index
+        .fetch_sequence(&record.query_name, record.query_start, record.query_end)
+        .map_err(|e| anyhow::anyhow!(e))
         .context(format!(
             "Failed to fetch query sequence: {} ({}:{})",
             record.query_name, record.query_start, record.query_end
         ))?;
-    let target_seq = fasta_reader
-        .fetch_target_sequence(&record.target_name, record.target_start, record.target_end)
+    let target_seq = sequence_index
+        .fetch_sequence(&record.target_name, record.target_start, record.target_end)
+        .map_err(|e| anyhow::anyhow!(e))
         .context(format!(
             "Failed to fetch target sequence: {} ({}:{})",
             record.target_name, record.target_start, record.target_end
         ))?;
 
     let query_seq = if record.strand == '-' {
-        reverse_complement(&query_seq)
+        reverse_complement_bytes(&query_seq)
     } else {
         query_seq
     };
-
-    let query_seq = query_seq.to_uppercase().into_bytes();
-    let target_seq = target_seq.to_uppercase().into_bytes();
+    // Sequences are already uppercase from fetch_sequence
 
     let cigar_ops = parse_cigar(&record.cigar).context("Failed to parse CIGAR string")?;
 
@@ -177,16 +177,16 @@ pub fn validate_record<W: Write>(
     }
 }
 
-fn reverse_complement(seq: &str) -> String {
-    seq.chars()
+fn reverse_complement_bytes(seq: &[u8]) -> Vec<u8> {
+    seq.iter()
         .rev()
-        .map(|base| match base {
-            'A' | 'a' => 'T',
-            'T' | 't' => 'A',
-            'G' | 'g' => 'C',
-            'C' | 'c' => 'G',
-            'N' | 'n' => 'N',
-            _ => 'N',
+        .map(|&base| match base {
+            b'A' | b'a' => b'T',
+            b'T' | b't' => b'A',
+            b'G' | b'g' => b'C',
+            b'C' | b'c' => b'G',
+            b'N' | b'n' => b'N',
+            _ => b'N',
         })
         .collect()
 }
@@ -199,8 +199,8 @@ mod tests {
 
     #[test]
     fn test_false_mismatch_detection() {
-        let query_fasta_content = ">query\nACTGACTGACTG";
-        let target_fasta_content = ">target\nACTGACTGACTG";
+        // Combined FASTA content with both query and target
+        let fasta_content = ">query\nACTGACTGACTG\n>target\nACTGACTGACTG";
         let cigar = "5=1X6=";
 
         let paf_record = PafRecord {
@@ -219,11 +219,10 @@ mod tests {
             cigar: cigar.to_string(),
         };
 
-        let mut fasta_reader =
-            MultiFastaReader::from_strings(query_fasta_content, target_fasta_content).unwrap();
+        let sequence_index = SequenceIndex::from_fasta_content(fasta_content).unwrap();
         let mut output = BufWriter::new(Vec::new());
 
-        let result = validate_record(&paf_record, &mut fasta_reader, "omit", &mut output);
+        let result = validate_record(&paf_record, &sequence_index, "omit", &mut output);
 
         assert!(
             result.is_err(),
@@ -253,8 +252,8 @@ mod tests {
 
     #[test]
     fn test_false_match_detection() {
-        let query_fasta_content = ">query\nACTGACCGACTG";
-        let target_fasta_content = ">target\nACTGACTGACTG";
+        // Combined FASTA content with both query and target
+        let fasta_content = ">query\nACTGACCGACTG\n>target\nACTGACTGACTG";
         let cigar = "12=";
 
         let paf_record = PafRecord {
@@ -273,11 +272,10 @@ mod tests {
             cigar: cigar.to_string(),
         };
 
-        let mut fasta_reader =
-            MultiFastaReader::from_strings(query_fasta_content, target_fasta_content).unwrap();
+        let sequence_index = SequenceIndex::from_fasta_content(fasta_content).unwrap();
         let mut output = BufWriter::new(Vec::new());
 
-        let result = validate_record(&paf_record, &mut fasta_reader, "omit", &mut output);
+        let result = validate_record(&paf_record, &sequence_index, "omit", &mut output);
 
         assert!(
             result.is_err(),

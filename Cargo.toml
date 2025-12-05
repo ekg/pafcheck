@@ -5,13 +5,19 @@ edition = "2021"
 
 [dependencies]
 clap = "3.2"
-anyhow = "1.0.98"
-tempfile = "3.20.0"
-thiserror = "1.0.69"
+anyhow = "1.0"
+tempfile = "3.20"
+thiserror = "1.0"
 
 rust-htslib = { version = "0.46.0", default-features = false } # Don't update it, see https://github.com/rust-bio/rust-htslib/issues/434
-libc = "0.2.174"
+libc = "0.2"
 
-indicatif = "0.17.11"
+indicatif = "0.17"
+
+rayon = "1.10"
+ragc-reader = { git = "https://github.com/AndreaGuarracino/ragc", branch = "tweaks" }
+
+log = "0.4"
+env_logger = "0.11"
 
 [dev-dependencies]

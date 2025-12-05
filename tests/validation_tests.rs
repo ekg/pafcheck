@@ -1,6 +1,6 @@
 use anyhow::Result;
-use pafcheck::fasta_reader::MultiFastaReader;
 use pafcheck::paf_parser::PafRecord;
+use pafcheck::sequence::SequenceIndex;
 use pafcheck::validator::validate_record;
 use std::io::{BufWriter, Write};
 use tempfile::NamedTempFile;
@@ -16,9 +16,8 @@ fn create_temp_fasta(sequences: &[(&str, &str)]) -> Result<NamedTempFile> {
 
 #[test]
 fn test_mismatch_detection() -> Result<()> {
-    // Create temporary FASTA files
-    let query_fasta = create_temp_fasta(&[("query1", "ACGTC")])?;
-    let target_fasta = create_temp_fasta(&[("target1", "ACGTT")])?;
+    // Create temporary FASTA file with both query and target sequences
+    let fasta = create_temp_fasta(&[("query1", "ACGTC"), ("target1", "ACGTT")])?;
 
     // Create a PAF record with an intentional mismatch
     let paf_record = PafRecord {
@@ -37,14 +36,15 @@ fn test_mismatch_detection() -> Result<()> {
         cigar: "4=1X".to_string(),
     };
 
-    // Create MultiFastaReader
-    let mut fasta_reader = MultiFastaReader::new(query_fasta.path(), target_fasta.path())?;
+    // Create SequenceIndex
+    let fasta_path = fasta.path().to_str().unwrap().to_string();
+    let sequence_index = SequenceIndex::build(&[fasta_path]).map_err(|e| anyhow::anyhow!(e))?;
 
     // Capture output
     let mut output = Vec::new();
     {
         let mut writer = BufWriter::new(&mut output);
-        let result = validate_record(&paf_record, &mut fasta_reader, "omit", &mut writer);
+        let result = validate_record(&paf_record, &sequence_index, "omit", &mut writer);
         assert!(
             result.is_ok(),
             "Expected validation to pass as the mismatch is correctly represented"
@@ -64,8 +64,7 @@ fn test_mismatch_detection() -> Result<()> {
 
 #[test]
 fn test_false_match_detection() -> Result<()> {
-    let query_fasta = create_temp_fasta(&[("query1", "ACGTC")])?;
-    let target_fasta = create_temp_fasta(&[("target1", "ACGTT")])?;
+    let fasta = create_temp_fasta(&[("query1", "ACGTC"), ("target1", "ACGTT")])?;
 
     let paf_record = PafRecord {
         query_name: "query1".to_string(),
@@ -83,12 +82,13 @@ fn test_false_match_detection() -> Result<()> {
         cigar: "5=".to_string(),
     };
 
-    let mut fasta_reader = MultiFastaReader::new(query_fasta.path(), target_fasta.path())?;
+    let fasta_path = fasta.path().to_str().unwrap().to_string();
+    let sequence_index = SequenceIndex::build(&[fasta_path]).map_err(|e| anyhow::anyhow!(e))?;
 
     let mut output = Vec::new();
     let result = {
         let mut writer = BufWriter::new(&mut output);
-        let result = validate_record(&paf_record, &mut fasta_reader, "report", &mut writer);
+        let result = validate_record(&paf_record, &sequence_index, "report", &mut writer);
         writer.flush()?;
         result
     };
@@ -109,8 +109,7 @@ fn test_false_match_detection() -> Result<()> {
 
 #[test]
 fn test_false_mismatch_detection() -> Result<()> {
-    let query_fasta = create_temp_fasta(&[("query1", "ACGTT")])?;
-    let target_fasta = create_temp_fasta(&[("target1", "ACGTT")])?;
+    let fasta = create_temp_fasta(&[("query1", "ACGTT"), ("target1", "ACGTT")])?;
 
     let paf_record = PafRecord {
         query_name: "query1".to_string(),
@@ -128,12 +127,13 @@ fn test_false_mismatch_detection() -> Result<()> {
         cigar: "4=1X".to_string(),
     };
 
-    let mut fasta_reader = MultiFastaReader::new(query_fasta.path(), target_fasta.path())?;
+    let fasta_path = fasta.path().to_str().unwrap().to_string();
+    let sequence_index = SequenceIndex::build(&[fasta_path]).map_err(|e| anyhow::anyhow!(e))?;
 
     let mut output = Vec::new();
     let result = {
         let mut writer = BufWriter::new(&mut output);
-        let result = validate_record(&paf_record, &mut fasta_reader, "report", &mut writer);
+        let result = validate_record(&paf_record, &sequence_index, "report", &mut writer);
         writer.flush()?;
         result
     };
@@ -154,8 +154,7 @@ fn test_false_mismatch_detection() -> Result<()> {
 
 #[test]
 fn test_mixed_match_mismatch_errors() -> Result<()> {
-    let query_fasta = create_temp_fasta(&[("query1", "ACGTACGT")])?;
-    let target_fasta = create_temp_fasta(&[("target1", "ACGTTCGT")])?;
+    let fasta = create_temp_fasta(&[("query1", "ACGTACGT"), ("target1", "ACGTTCGT")])?;
 
     let paf_record = PafRecord {
         query_name: "query1".to_string(),
@@ -173,13 +172,14 @@ fn test_mixed_match_mismatch_errors() -> Result<()> {
         cigar: "4=1X3=".to_string(),
     };
 
-    let mut fasta_reader = MultiFastaReader::new(query_fasta.path(), target_fasta.path())?;
+    let fasta_path = fasta.path().to_str().unwrap().to_string();
+    let sequence_index = SequenceIndex::build(&[fasta_path]).map_err(|e| anyhow::anyhow!(e))?;
 
     // Capture output
     let mut output = Vec::new();
     {
         let mut writer = BufWriter::new(&mut output);
-        let result = validate_record(&paf_record, &mut fasta_reader, "report", &mut writer);
+        let result = validate_record(&paf_record, &sequence_index, "report", &mut writer);
         assert!(
             result.is_ok(),
             "Expected validation to succeed in report mode"

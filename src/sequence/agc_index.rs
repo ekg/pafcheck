@@ -43,32 +43,37 @@ impl AgcIndex {
         let mut index = AgcIndex::new();
 
         // Parallel metadata extraction phase
-        let metadata_results: Vec<_> = agc_files
-            .par_iter()
-            .enumerate()
-            .map(
-                |(agc_idx, agc_path)| -> Result<(usize, String, Decompressor, Vec<(String, Vec<String>)>), String> {
-                    let config = DecompressorConfig {
-                        verbosity: 0,
-                        max_segment_cache_entries: 1, // ~1MB cache (16 x 60KB segments)
-                    };
-                    let mut decompressor = Decompressor::open(agc_path, config)
-                        .map_err(|e| format!("Failed to open AGC file: {agc_path}: {e}"))?;
+        let metadata_results: Vec<_> =
+            agc_files
+                .par_iter()
+                .enumerate()
+                .map(
+                    |(agc_idx, agc_path)| -> Result<
+                        (usize, String, Decompressor, Vec<(String, Vec<String>)>),
+                        String,
+                    > {
+                        let config = DecompressorConfig {
+                            verbosity: 0,
+                            max_segment_cache_entries: 1, // ~1MB cache (16 x 60KB segments)
+                        };
+                        let mut decompressor = Decompressor::open(agc_path, config)
+                            .map_err(|e| format!("Failed to open AGC file: {agc_path}: {e}"))?;
 
-                    // Get all samples and their contigs
-                    let samples = decompressor.list_samples();
-                    let sample_contigs: Vec<_> = samples
-                        .into_iter()
-                        .map(|sample| {
-                            let contigs = decompressor.list_contigs(&sample).unwrap_or_default();
-                            (sample, contigs)
-                        })
-                        .collect();
+                        // Get all samples and their contigs
+                        let samples = decompressor.list_samples();
+                        let sample_contigs: Vec<_> = samples
+                            .into_iter()
+                            .map(|sample| {
+                                let contigs =
+                                    decompressor.list_contigs(&sample).unwrap_or_default();
+                                (sample, contigs)
+                            })
+                            .collect();
 
-                    Ok((agc_idx, agc_path.clone(), decompressor, sample_contigs))
-                },
-            )
-            .collect::<Result<Vec<_>, String>>()?;
+                        Ok((agc_idx, agc_path.clone(), decompressor, sample_contigs))
+                    },
+                )
+                .collect::<Result<Vec<_>, String>>()?;
 
         // Sequential assembly phase to maintain order and avoid shared mutable state issues
         for (agc_idx, agc_path, decompressor, sample_contigs) in metadata_results {
@@ -140,7 +145,8 @@ impl AgcIndex {
         if let Some((contig, sample)) = seq_name.split_once('@') {
             let agc_idx = self.sample_contig_to_agc.get(seq_name).copied();
             (sample.to_string(), contig.to_string(), agc_idx)
-        } else if let Some((sample, full_contig, agc_idx)) = self.contig_to_sample_info.get(seq_name)
+        } else if let Some((sample, full_contig, agc_idx)) =
+            self.contig_to_sample_info.get(seq_name)
         {
             (sample.clone(), full_contig.clone(), Some(*agc_idx))
         } else {
@@ -167,7 +173,9 @@ impl AgcIndex {
         let mut decompressors = self.decompressors.lock().unwrap();
         let sequence = decompressors[agc_idx]
             .get_contig_range(&sample, &contig, start, end)
-            .map_err(|e| format!("Failed to fetch sequence '{contig}@{sample}:{start}:{end}': {e}"))?;
+            .map_err(|e| {
+                format!("Failed to fetch sequence '{contig}@{sample}:{start}:{end}': {e}")
+            })?;
 
         // Convert from numeric encoding (0-3) to ASCII (A,C,G,T)
         Ok(sequence

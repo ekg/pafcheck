@@ -90,11 +90,7 @@ fn main() {
         .get_matches();
 
     // Initialize logging based on verbosity level
-    let verbose: u8 = matches
-        .value_of("verbose")
-        .unwrap()
-        .parse()
-        .unwrap_or(1);
+    let verbose: u8 = matches.value_of("verbose").unwrap().parse().unwrap_or(1);
     let log_level = match verbose {
         0 => log::LevelFilter::Error,
         1 => log::LevelFilter::Info,
@@ -161,7 +157,10 @@ fn main() {
         };
 
         // Build sequence index
-        log::info!("Building sequence index from {} file(s)...", sequence_paths.len());
+        log::info!(
+            "Building sequence index from {} file(s)...",
+            sequence_paths.len()
+        );
         let sequence_index = match SequenceIndex::build(&sequence_paths) {
             Ok(index) => Arc::new(index),
             Err(e) => {
@@ -170,12 +169,7 @@ fn main() {
             }
         };
 
-        if let Err(e) = validate_paf(
-            sequence_index,
-            paf_path,
-            error_mode,
-            num_threads,
-        ) {
+        if let Err(e) = validate_paf(sequence_index, paf_path, error_mode, num_threads) {
             error!("{e}");
             std::process::exit(1);
         }
@@ -319,7 +313,7 @@ fn calculate_pair_coverage_stats(stats: &AlignmentPairStats) -> Result<PairCover
 
     let mut sorted_lengths = lengths.clone();
     sorted_lengths.sort_unstable();
-    let median_length = if sorted_lengths.len() % 2 == 0 {
+    let median_length = if sorted_lengths.len().is_multiple_of(2) {
         (sorted_lengths[sorted_lengths.len() / 2 - 1] + sorted_lengths[sorted_lengths.len() / 2])
             as f64
             / 2.0
@@ -563,7 +557,7 @@ fn print_length_stats(lengths: &[usize]) {
 
     let total: usize = lengths.iter().sum();
     let mean = total as f64 / lengths.len() as f64;
-    let median = if lengths.len() % 2 == 0 {
+    let median = if lengths.len().is_multiple_of(2) {
         (lengths[lengths.len() / 2 - 1] + lengths[lengths.len() / 2]) as f64 / 2.0
     } else {
         lengths[lengths.len() / 2] as f64
@@ -583,7 +577,7 @@ fn print_identity_stats(identities: &[f64]) {
 
     let total: f64 = identities.iter().sum();
     let mean = total / identities.len() as f64;
-    let median = if identities.len() % 2 == 0 {
+    let median = if identities.len().is_multiple_of(2) {
         (identities[identities.len() / 2 - 1] + identities[identities.len() / 2]) / 2.0
     } else {
         identities[identities.len() / 2]
@@ -716,7 +710,7 @@ fn print_coverage_stats(stats: &CoverageStats) {
         return;
     }
 
-    let median = if stats.coverage_percentages.len() % 2 == 0 {
+    let median = if stats.coverage_percentages.len().is_multiple_of(2) {
         let mid = stats.coverage_percentages.len() / 2;
         (stats.coverage_percentages[mid - 1] + stats.coverage_percentages[mid]) / 2.0
     } else {
@@ -856,9 +850,8 @@ fn process_chunk(
             progress.set_message(format!("Processing record {line_number}"));
         }
 
-        let record = PafRecord::from_line(line).context(format!(
-            "Failed to parse PAF record at line {line_number}"
-        ))?;
+        let record = PafRecord::from_line(line)
+            .context(format!("Failed to parse PAF record at line {line_number}"))?;
 
         let mut output = Vec::new();
         if let Err(e) = validate_record(&record, sequence_index, error_mode, &mut output) {
@@ -872,9 +865,7 @@ fn process_chunk(
                         line_number, error_type, error_info.first_message
                     ));
                     if count > 1 {
-                        error_messages.push(format!(
-                            "{error_type:?}: Total occurrences: {count}"
-                        ));
+                        error_messages.push(format!("{error_type:?}: Total occurrences: {count}"));
                     }
                 }
             } else {

@@ -87,8 +87,8 @@ impl FastaIndex {
 
     /// Create a FastaIndex from in-memory FASTA content (for testing)
     pub fn from_fasta_content(fasta_content: &str) -> Result<Self, String> {
-        let temp_file =
-            tempfile::NamedTempFile::new().map_err(|e| format!("Failed to create temp file: {e}"))?;
+        let temp_file = tempfile::NamedTempFile::new()
+            .map_err(|e| format!("Failed to create temp file: {e}"))?;
         std::fs::write(temp_file.path(), fasta_content)
             .map_err(|e| format!("Failed to write temp FASTA: {e}"))?;
 
